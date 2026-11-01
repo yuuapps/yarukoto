@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="icon-192.png">
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style>
-<script>window.APP_VER="1.1.0";</script>
+<script>window.APP_VER="1.2.0";</script>
 </head><body>
 <title>やること帳</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -156,6 +156,7 @@ main.board-mode{overflow:hidden;display:flex;flex-direction:column;padding-botto
 .cday.sel{box-shadow:inset 0 0 0 2px var(--accent)}
 .citem{font-size:10.5px;line-height:1.3;padding:1px 4px;border-radius:4px;background:var(--surface2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-left:3px solid var(--p4)}
 .citem.pr1{border-left-color:var(--p1)}.citem.pr2{border-left-color:var(--p2)}.citem.pr3{border-left-color:var(--p3)}
+.citem.done{opacity:.6;text-decoration:line-through;border-left-color:var(--muted);background:transparent}
 .cmore{font-size:10px;color:var(--muted);padding-left:4px}
 
 /* browse */
@@ -262,7 +263,7 @@ textarea.inp{resize:none;min-height:44px;line-height:1.45}
   <main id="main"><div class="loading">読み込み中…</div></main>
   <button id="fab" aria-label="タスクを追加"></button>
   <nav class="tabs" id="tabs">
-    <button data-tab="inbox"><span class="ti"></span>インボックス</button>
+    <button data-tab="all"><span class="ti"></span>すべて</button>
     <button data-tab="today"><span class="ti"></span>今日</button>
     <button data-tab="upcoming"><span class="ti"></span>近日予定</button>
     <button data-tab="browse"><span class="ti"></span>閲覧</button>
@@ -716,12 +717,12 @@ function deleteTask(id){
 let V={type:'today'}; const hist=[];
 let calCursor={}; let calSel={};
 const vkey=v=>v.type+(v.id?':'+v.id:'');
-function pref(v=V){ const p=S.meta.prefs[vkey(v)]||{}; return {layout:p.layout||'list',sort:p.sort||defSort(v),showDone:!!p.showDone}; }
+function pref(v=V){ const p=S.meta.prefs[vkey(v)]||{}; return {layout:p.layout||'list',sort:p.sort||defSort(v),showDone:!!p.showDone,calDone:p.calDone!==false}; }
 function setPref(patch,v=V){ S.meta.prefs[vkey(v)]={...pref(v),...patch}; Persist.putMeta(); render(); }
-function defSort(v){ return (v.type==='today'||v.type==='upcoming')?'smart':(v.type==='filter'||v.type==='label')?'due':'manual'; }
+function defSort(v){ return (v.type==='today'||v.type==='upcoming')?'smart':(v.type==='filter'||v.type==='label'||v.type==='all')?'due':'manual'; }
 function layouts(v){
-  switch(v.type){ case 'inbox':case 'project':case 'label':case 'filter': return ['list','board','calendar'];
-    case 'today': return ['list','board']; case 'upcoming': return ['list','calendar']; default: return []; }
+  switch(v.type){ case 'all':case 'inbox':case 'project':case 'label':case 'filter': return ['list','board','calendar'];
+    case 'today': return ['list','board']; case 'upcoming': return ['list','calendar']; case 'completed': return ['list','calendar']; default: return []; }
 }
 function go(v){ hist.push(V); V=v; render(true); }
 function back(){ V=hist.pop()||{type:'today'}; render(true); }
@@ -729,10 +730,10 @@ function goTab(t){ hist.length=0; V={type:t}; render(true); }
 
 function renderChrome(){
   $('#backBtn').innerHTML=I('back','lg'); $('#menuBtn').innerHTML=I('more','lg'); $('#fab').innerHTML=I('plus');
-  const ic={inbox:I('inbox','lg'),today:todayIcon(),upcoming:I('upcoming','lg'),browse:I('browse','lg')};
+  const ic={all:I('list','lg'),today:todayIcon(),upcoming:I('upcoming','lg'),browse:I('browse','lg')};
   $$('#tabs button').forEach(b=>b.querySelector('.ti').innerHTML=ic[b.dataset.tab]);
 }
-const TAB_OF={inbox:'inbox',today:'today',upcoming:'upcoming'};
+const TAB_OF={all:'all',today:'today',upcoming:'upcoming'};
 function render(resetScroll){
   if(!S.ready||!S.meta) return;
   const main=$('#main'), st=main.scrollTop;
@@ -743,22 +744,23 @@ function render(resetScroll){
   const layout=ls.includes(p.layout)?p.layout:'list';
   const seg=$('#layoutSeg'); seg.hidden=ls.length<2;
   seg.innerHTML=ls.map(l=>`<button data-layout="${l}" aria-pressed="${l===layout}" aria-label="${{list:'リスト',board:'ボード',calendar:'カレンダー'}[l]}">${I({list:'list',board:'board',calendar:'cal'}[l])}</button>`).join('');
-  $('#menuBtn').hidden=!['inbox','today','upcoming','project','label','filter'].includes(V.type);
+  $('#menuBtn').hidden=!['all','inbox','today','upcoming','project','label','filter'].includes(V.type);
   $('#fab').hidden=['activity','settings'].includes(V.type);
   main.classList.toggle('board-mode',layout==='board');
   $('#app').classList.toggle('wide',layout==='board'||layout==='calendar');
   let title='',sub='',dot='';
   const h=[];
   switch(V.type){
-    case 'inbox': title='インボックス'; renderProjectView(h,'inbox',layout); break;
+    case 'all': title='すべて'; renderAllView(h,layout); break;
+    case 'inbox': title=proj('inbox').name; renderProjectView(h,'inbox',layout); break;
     case 'today': { title='今日'; const d=new Date(); sub=`${d.getMonth()+1}月${d.getDate()}日（${WD[d.getDay()]}）`; renderToday(h,layout); break; }
     case 'upcoming': title='近日予定'; renderUpcoming(h,layout); break;
     case 'project': { const pr=proj(V.id); if(!pr){ V={type:'browse'}; return render(); } title=pr.name; dot=COLORS[pr.color]; renderProjectView(h,V.id,layout); break; }
-    case 'label': { const l=label(V.id); if(!l){ V={type:'browse'}; return render(); } title='@'+l.name; dot=COLORS[l.color]; renderTaskSet(h,activeTasks().filter(t=>(t.labels||[]).includes(l.id)),layout,{labelId:l.id}); break; }
+    case 'label': { const l=label(V.id); if(!l){ V={type:'browse'}; return render(); } title='@'+l.name; dot=COLORS[l.color]; renderTaskSet(h,activeTasks().filter(t=>(t.labels||[]).includes(l.id)),layout,{labelId:l.id,scope:t=>(t.labels||[]).includes(l.id)}); break; }
     case 'filter': { const f=filt(V.id); if(!f){ V={type:'browse'}; return render(); } title=f.name; dot=COLORS[f.color]; sub=f.query; renderFilter(h,f,layout); break; }
     case 'browse': title='閲覧'; renderBrowse(h); break;
     case 'search': title='検索'; renderSearch(h); break;
-    case 'completed': title='完了済み'; renderCompleted(h); break;
+    case 'completed': title='完了済み'; renderCompleted(h,layout); break;
     case 'activity': title='アクティビティ'; renderActivity(h); break;
     case 'settings': title='設定とバックアップ'; renderSettings(h); break;
   }
@@ -813,7 +815,7 @@ function renderProjectView(h,pid,layout){
   const pr=proj(pid), p=pref();
   const list=all().filter(t=>t.projectId===pid&&(!t.done||p.showDone));
   if(layout==='board') return renderBoard(h,list,{projectId:pid});
-  if(layout==='calendar') return renderCalendar(h,list.filter(t=>!t.done),{projectId:pid});
+  if(layout==='calendar') return renderCalendar(h,list.filter(t=>!t.done),{projectId:pid,scope:t=>t.projectId===pid});
   if(pid==='inbox') welcome(h);
   const noSec=list.filter(t=>!t.sectionId||!pr.sections.find(s=>s.id===t.sectionId));
   treeRows(h,noSec,{sort:p.sort});
@@ -827,6 +829,24 @@ function renderProjectView(h,pid,layout){
   if(!list.length&&pid!=='inbox') emptyState(h,'タスクはまだありません','＋ボタンか「タスクを追加」から登録できます。');
   if(pid==='inbox'&&!list.length&&(S.meta.welcomeDone||S.tasks.size)) emptyState(h,'インボックスは空です','思いついたことはまずここへ。あとで整理すれば大丈夫です。');
   if(pid==='inbox') storageBanner(h);
+}
+/* all tasks */
+function renderAllView(h,layout){
+  const p=pref();
+  const list=all().filter(t=>!t.done||p.showDone);
+  if(layout==='board') return renderBoard(h,list,{byProject:true});
+  if(layout==='calendar') return renderCalendar(h,list.filter(t=>!t.done),{scope:()=>true});
+  welcome(h);
+  S.meta.projects.forEach(pr=>{
+    const items=list.filter(t=>t.projectId===pr.id);
+    if(!items.length&&pr.id!=='inbox') return;
+    const v=pr.id==='inbox'?{type:'inbox'}:{type:'project',id:pr.id};
+    h.push(`<div class="group"><div class="ghead"><i class="cdot" style="background:${COLORS[pr.color]}"></i><button data-go='${esc(JSON.stringify(v))}' style="font-weight:700">${esc(pr.name)}</button> <span class="gcount">${items.filter(t=>!t.done&&!t.parentId).length}</span></div>`);
+    treeRows(h,items,{sort:p.sort});
+    h.push(addRow({projectId:pr.id})+'</div>');
+  });
+  if(!list.length&&(S.meta.welcomeDone||S.tasks.size)) emptyState(h,'未完了のタスクはありません','＋ボタンから追加すると、ここにすべて並びます。');
+  storageBanner(h);
 }
 /* today */
 function renderToday(h,layout){
@@ -850,7 +870,7 @@ function doneOn(day){ let c=0; for(const evs of S.activity.values()) for(const e
 function renderUpcoming(h,layout){
   const td=T(), p=pref();
   const list=activeTasks().filter(t=>t.due);
-  if(layout==='calendar') return renderCalendar(h,list,{});
+  if(layout==='calendar') return renderCalendar(h,list,{scope:()=>true});
   const has=new Set(list.map(t=>t.due));
   h.push('<div class="week">'+Array.from({length:7},(_,i)=>{const d=addDays(td,i),w=pYmd(d).getDay();return `<button data-jump="${d}" class="${i===0?'is-today':''} ${has.has(d)?'has':''} ${w===0?'sun':w===6?'sat':''}">${WD[w]}<b>${pYmd(d).getDate()}</b><i class="wdot"></i></button>`;}).join('')+'</div>');
   const over=list.filter(t=>t.due<td);
@@ -869,18 +889,19 @@ function renderUpcoming(h,layout){
 function renderFilter(h,f,layout){
   let fn; try{ fn=compileFilter(f.query); }catch(e){ h.push(`<div class="card" style="margin-top:12px"><b>条件を読み取れません</b><p class="err">${esc(e.message)}</p><button class="btn sm" data-act="editFilter">条件を直す</button></div>`); return; }
   const wantsDone=/完了/.test(f.query);
-  renderTaskSet(h,all().filter(t=>(wantsDone||!t.done)&&fn(t)),layout,{});
+  renderTaskSet(h,all().filter(t=>(wantsDone||!t.done)&&fn(t)),layout,{scope:fn});
 }
 function renderTaskSet(h,list,layout,ctx){
   const p=pref();
   if(layout==='board') return renderBoard(h,list,ctx);
-  if(layout==='calendar') return renderCalendar(h,list,ctx);
+  if(layout==='calendar') return renderCalendar(h,list.filter(t=>!t.done),ctx);
   if(!list.length) return emptyState(h,'該当するタスクはありません','条件に合うタスクがここに並びます。');
   h.push(`<div class="group">`); sortT(list,p.sort).forEach(t=>h.push(taskRow(t,{showProject:true,parent:true}))); h.push('</div>');
   if(ctx.labelId) h.push(addRow({labels:[ctx.labelId]}));
 }
 /* board */
 function boardColumns(list,ctx){
+  if(ctx.byProject) return S.meta.projects.map(p=>({key:p.id,name:p.name,color:p.color,items:list.filter(t=>t.projectId===p.id)}));
   if(ctx.projectId){
     const pr=proj(ctx.projectId);
     const cols=[{key:'',name:'セクションなし',items:list.filter(t=>!t.sectionId||!pr.sections.find(s=>s.id===t.sectionId))}];
@@ -891,11 +912,11 @@ function boardColumns(list,ctx){
 }
 function renderBoard(h,list,ctx){
   const cols=boardColumns(list,ctx);
-  h.push(`<div class="board" id="board" data-mode="${ctx.projectId?'section':'priority'}">`);
+  h.push(`<div class="board" id="board" data-mode="${ctx.projectId?'section':ctx.byProject?'project':'priority'}">`);
   cols.forEach(c=>{
-    const preset=ctx.projectId?{projectId:ctx.projectId,sectionId:c.key}:{priority:c.prio,...(ctx.due?{due:ctx.due}:{}),...(ctx.labelId?{labels:[ctx.labelId]}:{})};
-    h.push(`<section class="col" data-col="${c.key}"><div class="colhead">${c.prio?`<span style="color:var(--p${c.prio})">${I('flag','sm')}</span>`:''}${esc(c.name)} <span class="gcount">${c.items.filter(t=>!t.done).length}</span>${c.sec?`<button class="icon-btn" data-secmenu="${c.key}" aria-label="セクションのメニュー">${I('more')}</button>`:''}</div><div class="colbody">`);
-    sortT(c.items,'manual').forEach(t=>h.push(taskRow(t,{card:true,showProject:!ctx.projectId})));
+    const preset=ctx.byProject?{projectId:c.key}:ctx.projectId?{projectId:ctx.projectId,sectionId:c.key}:{priority:c.prio,...(ctx.due?{due:ctx.due}:{}),...(ctx.labelId?{labels:[ctx.labelId]}:{})};
+    h.push(`<section class="col" data-col="${c.key}"><div class="colhead">${c.color?`<i class="cdot" style="background:${COLORS[c.color]}"></i>`:''}${c.prio?`<span style="color:var(--p${c.prio})">${I('flag','sm')}</span>`:''}${esc(c.name)} <span class="gcount">${c.items.filter(t=>!t.done).length}</span>${c.sec?`<button class="icon-btn" data-secmenu="${c.key}" aria-label="セクションのメニュー">${I('more')}</button>`:''}</div><div class="colbody">`);
+    sortT(c.items,'manual').forEach(t=>h.push(taskRow(t,{card:true,showProject:!ctx.projectId&&!ctx.byProject})));
     h.push(`</div>${addRow(preset)}</section>`);
   });
   if(ctx.projectId) h.push(`<button class="newcol" data-act="addSection">＋ セクションを追加</button>`);
@@ -926,6 +947,7 @@ function bindBoard(){
         const key=col.dataset.col, mode=board.dataset.mode;
         const changed=[];
         if(mode==='section'&&(t.sectionId||'')!==key){ t.sectionId=key; changed.push('セクション'); }
+        if(mode==='project'&&t.projectId!==key){ t.projectId=key; t.sectionId=''; descendants(t.id).forEach(c=>{c.projectId=key;c.sectionId='';Persist.putTask(c);}); changed.push('プロジェクト'); }
         if(mode==='priority'&&String(t.priority)!==key){ t.priority=+key; changed.push('優先度'); }
         t.order=o; Persist.putTask(t); if(changed.length) Persist.log('update',t,changed.join('・')+'を変更');
       }
@@ -966,24 +988,50 @@ function bindBoard(){
 }
 let suppressClick=false;
 /* calendar */
+function doneItems(scope){
+  const out=[];
+  for(const t of S.tasks.values()) if(t.done&&t.doneAt&&scope(t)) out.push({day:ymd(new Date(t.doneAt)),t,id:t.id,pid:t.projectId,title:t.title,at:t.doneAt,real:true});
+  const evs=[]; for(const a of S.activity.values()) for(const e of a) if((e.type==='complete'&&e.d==='繰り返し')||e.type==='uncomplete') evs.push(e);
+  evs.sort((a,b)=>a.t-b.t);
+  const rec=[];
+  evs.forEach(e=>{ if(e.type==='complete') rec.push(e); else { for(let i=rec.length-1;i>=0;i--) if(rec[i].id===e.id){ rec.splice(i,1); break; } } });
+  rec.forEach(e=>{ const t=S.tasks.get(e.id); const probe=t||{projectId:e.pid,labels:[],priority:4,title:e.title,desc:'',due:''}; if(scope(probe)) out.push({day:ymd(new Date(e.t)),t,id:e.id,pid:e.pid,title:e.title,at:e.t,real:false}); });
+  return out;
+}
+function doneRow(x){
+  const pr=proj(x.t?x.t.projectId:x.pid);
+  const ck=x.real?`<button class="check on" data-check="${x.id}" aria-label="未完了に戻す">${I('check')}</button>`:`<span class="check on" aria-hidden="true">${I('check')}</span>`;
+  return `<div class="task done" ${x.t?`data-task="${x.id}"`:''}>${ck}<div class="tbody"><div class="ttitle">${esc(x.title)}</div><div class="tmeta"><span>${I('clock','sm')}${fmtTime(x.at)} 完了</span>${x.real?'':`<span>${I('repeat','sm')}繰り返し</span>`}${pr?`<span class="tproj">${esc(pr.name)}<i class="cdot" style="background:${COLORS[pr.color]}"></i></span>`:''}</div></div></div>`;
+}
 function renderCalendar(h,list,ctx){
-  const k=vkey(V); const td=T();
+  const k=vkey(V), td=T(), p=pref();
   const cur=calCursor[k]||td.slice(0,7); const [cy,cm]=cur.split('-').map(Number);
   const sel=calSel[k]||td;
   const first=new Date(cy,cm-1,1), startD=addDays(ymd(first),-first.getDay());
-  const byDay=new Map(); list.forEach(t=>{ if(!t.due) return; if(!byDay.has(t.due)) byDay.set(t.due,[]); byDay.get(t.due).push(t); });
+  const byDay=new Map(); const slot=d=>{ if(!byDay.has(d)) byDay.set(d,{a:[],d:[]}); return byDay.get(d); };
+  list.forEach(t=>{ if(t.due&&!t.done) slot(t.due).a.push(t); });
+  if((ctx.doneOnly||p.calDone)&&ctx.scope) doneItems(ctx.scope).forEach(x=>slot(x.day).d.push(x));
   h.push(`<div class="calnav"><h2>${cy}年${cm}月</h2><button class="btn sm" data-cal="today">今日</button><button class="icon-btn" data-cal="-1" aria-label="前の月">${I('back')}</button><button class="icon-btn" data-cal="1" aria-label="次の月">${I('chev')}</button></div>`);
   h.push('<div class="cal">'+WD.map((w,i)=>`<div class="wh ${i===0?'sun':i===6?'sat':''}">${w}</div>`).join(''));
   const weeks=Math.ceil((first.getDay()+dim(cy,cm-1))/7);
   for(let i=0;i<weeks*7;i++){
-    const d=addDays(startD,i), dd=pYmd(d), items=sortT(byDay.get(d)||[],'smart'), w=dd.getDay();
-    h.push(`<button class="cday ${dd.getMonth()!==cm-1?'out':''} ${d===td?'is-today':''} ${d===sel?'sel':''} ${w===0?'sun':w===6?'sat':''}" data-day="${d}"><span class="dn">${dd.getDate()}</span>${items.slice(0,3).map(t=>`<span class="citem pr${t.priority}">${esc(t.title)}</span>`).join('')}${items.length>3?`<span class="cmore">ほか${items.length-3}件</span>`:''}</button>`);
+    const d=addDays(startD,i), dd=pYmd(d), e=byDay.get(d)||{a:[],d:[]}, w=dd.getDay();
+    const items=[...sortT(e.a,'smart').map(t=>`<span class="citem pr${t.priority}">${esc(t.title)}</span>`),...e.d.slice().sort((a,b)=>a.at-b.at).map(x=>`<span class="citem done">${esc(x.title)}</span>`)];
+    h.push(`<button class="cday ${dd.getMonth()!==cm-1?'out':''} ${d===td?'is-today':''} ${d===sel?'sel':''} ${w===0?'sun':w===6?'sat':''}" data-day="${d}"><span class="dn">${dd.getDate()}</span>${items.slice(0,3).join('')}${items.length>3?`<span class="cmore">ほか${items.length-3}件</span>`:''}</button>`);
   }
   h.push('</div>');
-  const items=byDay.get(sel)||[];
-  h.push(`<div class="group"><div class="ghead">${fmtMD(sel)} <span class="gsub">${WD[pYmd(sel).getDay()]}曜日</span> <span class="gcount">${items.length}</span></div>`);
-  sortT(items,'smart').forEach(t=>h.push(taskRow(t,{showProject:!ctx.projectId,noDate:true,timeOnly:true})));
-  h.push(addRow({due:sel,...(ctx.projectId?{projectId:ctx.projectId}:{}),...(ctx.labelId?{labels:[ctx.labelId]}:{})})+'</div>');
+  const e=byDay.get(sel)||{a:[],d:[]};
+  if(!ctx.doneOnly){
+    h.push(`<div class="group"><div class="ghead">${fmtMD(sel)} <span class="gsub">${WD[pYmd(sel).getDay()]}曜日</span> <span class="gcount">${e.a.length}</span></div>`);
+    sortT(e.a,'smart').forEach(t=>h.push(taskRow(t,{showProject:!ctx.projectId,noDate:true,timeOnly:true})));
+    h.push(addRow({due:sel,...(ctx.projectId?{projectId:ctx.projectId}:{}),...(ctx.labelId?{labels:[ctx.labelId]}:{})})+'</div>');
+  }
+  if(e.d.length||ctx.doneOnly){
+    h.push(`<div class="group"><div class="ghead">${ctx.doneOnly?fmtMD(sel)+' ':''}完了 <span class="gcount">${e.d.length}</span></div>`);
+    e.d.slice().sort((a,b)=>b.at-a.at).forEach(x=>h.push(doneRow(x)));
+    if(!e.d.length) h.push('<p class="mode-note">この日に完了したタスクはありません。</p>');
+    h.push('</div>');
+  }
 }
 /* browse */
 function count(fn){ let c=0; for(const t of S.tasks.values()) if(!t.done&&fn(t)) c++; return c; }
@@ -1013,12 +1061,13 @@ function searchResults(){
   if(!res.length) return `<div class="empty"><h3>見つかりません</h3><p>「${esc(searchQ)}」を含むタスクはありません。</p></div>`;
   return '<div class="group">'+sortT(res,'due').map(t=>taskRow(t,{showProject:true})).join('')+'</div>';
 }
-function renderCompleted(h){
-  const list=all().filter(t=>t.done).sort((a,b)=>b.doneAt-a.doneAt);
-  if(!list.length) return emptyState(h,'完了済みのタスクはありません','完了したタスクはここに残ります。チェックを外すと元に戻せます。');
+function renderCompleted(h,layout){
+  if(layout==='calendar') return renderCalendar(h,[],{scope:()=>true,doneOnly:true});
+  const items=doneItems(()=>true).sort((a,b)=>b.at-a.at);
+  if(!items.length) return emptyState(h,'完了済みのタスクはありません','完了したタスクはここに残ります。チェックを外すと元に戻せます。');
   h.push(`<div class="row2" style="margin-top:6px"><button class="btn sm danger" data-act="purgeDone" style="flex:0 0 auto">${I('trash','sm')}30日より前の完了済みを削除</button></div>`);
   let last='';
-  list.forEach(t=>{ const d=ymd(new Date(t.doneAt||t.updatedAt)); if(d!==last){ if(last) h.push('</div>'); h.push(`<div class="group"><div class="ghead">${fmtMD(d)} <span class="gsub">${WD[pYmd(d).getDay()]}曜日</span></div>`); last=d; } h.push(taskRow(t,{showProject:true})); });
+  items.forEach(x=>{ if(x.day!==last){ if(last) h.push('</div>'); h.push(`<div class="group"><div class="ghead">${fmtMD(x.day)} <span class="gsub">${WD[pYmd(x.day).getDay()]}曜日</span></div>`); last=x.day; } h.push(doneRow(x)); });
   h.push('</div>');
 }
 /* activity & productivity */
@@ -1234,7 +1283,8 @@ function viewMenu(){
   const p=pref(), opts=[];
   const sorts=V.type==='upcoming'||V.type==='today'?['smart','priority','name','created']:['manual','due','priority','name','created'];
   opts.push({label:'並び替え',value:SORT_NAMES[p.sort]||'',icon:'list',run:()=>optionsSheet('並び替え',sorts.map(s=>({label:SORT_NAMES[s],checked:p.sort===s,run:()=>setPref({sort:s})})))});
-  if(V.type==='inbox'||V.type==='project') opts.push({label:p.showDone?'完了済みを隠す':'完了済みも表示する',icon:'done',run:()=>setPref({showDone:!p.showDone})});
+  if(layouts(V).includes('calendar')) opts.push({label:p.calDone?'カレンダーで完了済みを隠す':'カレンダーに完了済みも表示する',icon:'cal',run:()=>setPref({calDone:!p.calDone})});
+  if(V.type==='all'||V.type==='inbox'||V.type==='project') opts.push({label:p.showDone?'完了済みを隠す':'完了済みも表示する',icon:'done',run:()=>setPref({showDone:!p.showDone})});
   if(V.type==='inbox'||V.type==='project') opts.push({label:'セクションを追加',icon:'board',run:addSection});
   if(V.type==='project'){
     const pr=proj(V.id);
@@ -1333,7 +1383,7 @@ $('#main').addEventListener('click',async e=>{
     Sound.play('done');
     const row=ck.closest('[data-task]'); ck.classList.add('on'); row&&row.classList.add('leaving'); setTimeout(()=>completeTask(id),220); return; }
   const add=t.closest('[data-add]'); if(add){ openQuickAdd(JSON.parse(add.dataset.add)); return; }
-  const g=t.closest('[data-go]'); if(g){ const v=JSON.parse(g.dataset.go); if(v.type==='inbox') goTab('inbox'); else go(v); return; }
+  const g=t.closest('[data-go]'); if(g){ const v=JSON.parse(g.dataset.go); go(v); return; }
   const sm=t.closest('[data-secmenu]'); if(sm){ sectionMenu(sm.dataset.secmenu); return; }
   const j=t.closest('[data-jump]'); if(j){ const el=document.getElementById('d-'+j.dataset.jump); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); return; }
   const cn=t.closest('[data-cal]'); if(cn){ const k=vkey(V), td=T(); if(cn.dataset.cal==='today'){ calCursor[k]=td.slice(0,7); calSel[k]=td; } else { const [y,m]=(calCursor[k]||td.slice(0,7)).split('-').map(Number); const d=new Date(y,m-1+ +cn.dataset.cal,1); calCursor[k]=ymd(d).slice(0,7); } render(); return; }
