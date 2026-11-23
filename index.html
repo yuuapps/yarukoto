@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="icon-192.png">
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style>
-<script>window.APP_VER="1.3.0";</script>
+<script>window.APP_VER="1.4.0";</script>
 </head><body>
 <title>やること帳</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -227,6 +227,18 @@ main.board-mode{overflow:hidden;display:flex;flex-direction:column;padding-botto
 .msname{font-weight:700;overflow-wrap:anywhere}
 .mshead .icon-btn{width:32px;height:32px}
 .tabs button{font-size:10.5px}
+
+/* roadmap & review */
+.rmcard{text-align:left;width:100%;cursor:pointer}
+.bcard.done{opacity:.6}
+.col.late .colhead{color:var(--d-over)}
+.rvprog{display:flex;align-items:center;gap:10px;margin-top:8px;font-size:13px;color:var(--muted);font-family:var(--f-num);font-variant-numeric:tabular-nums}
+.rvprog .bar{flex:1}
+.rvcard{margin-top:12px;display:flex;flex-direction:column;gap:10px}
+.rvtitle{font-size:19px;font-weight:800;overflow-wrap:anywhere}
+.rvacts{display:flex;flex-wrap:wrap;gap:8px;border-top:1px solid var(--line);padding-top:12px}
+.rvdate{display:flex;gap:6px;align-items:center;flex:1 1 100%}
+.rvdate .inp{flex:1;min-width:0;padding:6px 10px}
 
 /* sheets */
 #layer{position:fixed;inset:0;z-index:30}
@@ -802,6 +814,8 @@ function goalCard(g){
 }
 function renderGoals(h){
   const gs=goals();
+  reviewBanner(h);
+  if(gs.length) h.push(`<div class="row2" style="margin-top:8px"><button class="btn sm" data-act="review" style="flex:0 0 auto">${I('check','sm')}週次の見直しを始める</button></div>`);
   if(!gs.length){ h.push(`<div class="empty">${I('target')}<h3>目標を立てましょう</h3><p>半年〜数年かけて達成したいことを「目標」に、3か月以内の到達点を「マイルストーン」に分けて進めます。右下の＋から追加できます。</p></div>`); return; }
   const rank={bad:0,warn:1,ok:2};
   const act=gs.filter(g=>g.status==='active').sort((a,b)=>rank[health(a).lvl]-rank[health(b).lvl]||((openMs(a)[0]||{due:'9'}).due).localeCompare((openMs(b)[0]||{due:'9'}).due));
@@ -908,6 +922,143 @@ function goalMenu(){
   optionsSheet(g.name,opts);
 }
 
+/* roadmap */
+function rmCard({g,m}){
+  const p=msProgress(m), done=m.status==='done';
+  return `<button class="bcard rmcard ${done?'done':''}" data-go='${esc(JSON.stringify({type:'goal',id:g.id}))}'><div class="tbody">
+    <div class="tmeta" style="margin:0 0 3px"><span><i class="cdot" style="background:${COLORS[g.color]||COLORS.teal}"></i>${esc(g.name)}</span></div>
+    <div class="ttitle">${done?'✓ ':''}${esc(m.name)}</div>
+    <div class="tmeta"><span class="${!done&&m.due<T()?'due-over':''}">${I('cal','sm')}${fmtMD(m.due)}${done?' 期限':'（'+leftLabel(m.due)+'）'}</span><span>タスク ${p.done}/${p.total}</span></div>
+    ${p.total?`<div class="bar" style="margin-top:6px"><i style="width:${Math.round(p.done/p.total*100)}%"></i></div>`:''}</div></button>`;
+}
+function renderRoadmap(h){
+  const td=T(), lim=limit3(), d0=pYmd(td);
+  const months=[0,1,2,3].map(i=>({s:ymd(new Date(d0.getFullYear(),d0.getMonth()+i,1)),e:ymd(new Date(d0.getFullYear(),d0.getMonth()+i+1,0)),i})).filter(m=>m.s<=lim);
+  const act=goals().filter(g=>g.status==='active');
+  const items=[]; act.forEach(g=>g.milestones.forEach(m=>items.push({g,m})));
+  const isLate=x=>x.m.status!=='done'&&x.m.due<td;
+  const cols=[];
+  const plan=act.filter(g=>!openMs(g).some(m=>m.due>=td&&m.due<=lim));
+  if(plan.length) cols.push({name:'要計画',cls:'late',plan});
+  const late=items.filter(isLate); if(late.length) cols.push({name:'期限切れ',cls:'late',items:late});
+  months.forEach(mo=>{ const mm=pYmd(mo.s).getMonth()+1; cols.push({name:`${mm}月${mo.i===0?'（今月）':''}`,sub:lim<mo.e?`${pYmd(lim).getDate()}日まで`:'',items:items.filter(x=>!isLate(x)&&x.m.due>=mo.s&&x.m.due<=mo.e)}); });
+  const after=items.filter(x=>x.m.due>months[months.length-1].e); if(after.length) cols.push({name:'それ以降',items:after});
+  if(!act.length){ h.push(`<div class="empty">${I('target')}<h3>進行中の目標はありません</h3><p>目標とマイルストーンを登録すると、3か月の流れがここに並びます。</p></div>`); return; }
+  h.push(`<div class="board" id="roadmap">`);
+  cols.forEach(c=>{
+    if(c.plan){ h.push(`<section class="col late"><div class="colhead">要計画 <span class="gcount">${c.plan.length}</span></div><div class="colbody">`+c.plan.map(g=>`<button class="bcard rmcard" data-go='${esc(JSON.stringify({type:'goal',id:g.id}))}'><div class="tbody"><div class="ttitle"><i class="cdot" style="background:${COLORS[g.color]||COLORS.teal}"></i> ${esc(g.name)}</div><div class="tmeta"><span>3か月以内のマイルストーンがありません</span></div></div></button>`).join('')+'</div></section>'); return; }
+    const done=c.items.filter(x=>x.m.status==='done').length;
+    h.push(`<section class="col ${c.cls||''}"><div class="colhead">${esc(c.name)} <span class="gcount">${c.sub?esc(c.sub)+'・':''}達成 ${done}/${c.items.length}</span></div><div class="colbody">`);
+    c.items.sort((a,b)=>a.m.due.localeCompare(b.m.due)).forEach(x=>h.push(rmCard(x)));
+    if(!c.items.length) h.push('<p class="mode-note" style="margin:4px 6px">この月のマイルストーンはありません</p>');
+    h.push('</div></section>');
+  });
+  h.push('</div>');
+}
+/* weekly review */
+const reviewDay=()=>S.meta.reviewDay==null?5:S.meta.reviewDay;
+function reviewPending(){
+  const rd=reviewDay(); if(rd<0) return false;
+  const td=T(), w=pYmd(td).getDay();
+  if(!S.meta.lastReview) return w===rd;
+  return S.meta.lastReview<addDays(td,-((w-rd+7)%7));
+}
+function reviewItems(){
+  const td=T(), lim=limit3(), out=[];
+  goals().filter(g=>g.status==='active').forEach(g=>{
+    const om=openMs(g);
+    om.filter(m=>m.due<td).forEach(m=>out.push({k:'late',gid:g.id,mid:m.id}));
+    if(!om.some(m=>m.due>=td&&m.due<=lim)) out.push({k:'plan',gid:g.id});
+    om.filter(m=>m.due>=td&&m.due<=lim&&!msTasks(m.id).some(t=>!t.done)).forEach(m=>out.push({k:'idle',gid:g.id,mid:m.id}));
+  });
+  sortT(activeTasks().filter(t=>t.due&&t.due<td&&!t.parentId),'due').forEach(t=>out.push({k:'over',tid:t.id}));
+  const old=Date.now()-90*864e5;
+  activeTasks().filter(t=>!t.parentId&&!t.due&&(t.createdAt||0)<old).forEach(t=>out.push({k:'stale',tid:t.id}));
+  return out;
+}
+function itemValid(it){
+  const td=T(), lim=limit3();
+  switch(it.k){
+    case 'late': { const f=msFind(it.mid); return !!f&&f.m.status!=='done'&&f.m.due<td; }
+    case 'plan': { const g=goal(it.gid); return !!g&&g.status==='active'&&!openMs(g).some(m=>m.due>=td&&m.due<=lim); }
+    case 'idle': { const f=msFind(it.mid); return !!f&&f.m.status!=='done'&&f.g.status==='active'&&!msTasks(it.mid).some(t=>!t.done); }
+    case 'over': { const t=S.tasks.get(it.tid); return !!t&&!t.done&&!!t.due&&t.due<td; }
+    case 'stale': { const t=S.tasks.get(it.tid); return !!t&&!t.done&&!t.due; }
+  }
+  return false;
+}
+let RV=null;
+function startReview(){ RV={q:reviewItems(),i:0}; go({type:'review'}); }
+function reviewBanner(h){
+  if(!reviewPending()) return;
+  const n=reviewItems().length;
+  h.push(`<button class="hbanner warn" data-act="review" style="width:100%;text-align:left">${I('check','sm')} <b>週次の見直しの日です</b>　確認する項目 ${n}件。タップして始めます</button>`);
+}
+const rvBtn=(a,label,pri)=>`<button class="btn sm ${pri?'pri':''}" data-rv="${a}">${label}</button>`;
+function renderReview(h){
+  if(!RV) RV={q:reviewItems(),i:0};
+  while(RV.i<RV.q.length&&!itemValid(RV.q[RV.i])) RV.i++;
+  const n=RV.q.length;
+  if(RV.i>=n){
+    const handled=RV.q.filter(it=>!itemValid(it)).length;
+    if(!RV.recorded){ RV.recorded=true; S.meta.lastReview=T(); Persist.putMeta(); Persist.log('review',{id:'review',title:'週次の見直し',projectId:''},n?`${n}件を確認し、${handled}件を整理`:'確認する項目なし'); }
+    const rd=reviewDay(), nx=rd<0?'':addDays(T(),((rd-pYmd(T()).getDay()+7)%7)||7);
+    h.push(`<div class="card gdesc" style="text-align:center;align-items:center">${I('done')}<h3 style="margin:0">見直しが終わりました</h3><p class="mode-note" style="margin:0">${n?`${n}件を確認し、${handled}件を整理しました。`:'確認が必要な項目はありませんでした。'}${nx?`<br>次の見直しは ${fmtMD(nx)}（${WD[pYmd(nx).getDay()]}）です。`:''}</p>
+      <div class="row2" style="width:100%"><button class="btn" data-go='{"type":"goals"}'>目標を見る</button><button class="btn pri" data-act="goToday">今日へ</button></div></div>`);
+    return;
+  }
+  const it=RV.q[RV.i], td=T(), lim=limit3();
+  h.push(`<div class="rvprog"><span>${RV.i+1} / ${n}</span><div class="bar"><i style="width:${Math.round(RV.i/n*100)}%"></i></div></div>`);
+  let pill='',lvl='bad',title='',body='',acts='';
+  if(it.k==='late'||it.k==='idle'){
+    const {g,m}=msFind(it.mid), p=msProgress(m);
+    pill=it.k==='late'?'期限を過ぎたマイルストーン':'次の一歩がないマイルストーン'; lvl=it.k==='late'?'bad':'warn';
+    title=m.name;
+    body=`<div class="tmeta"><span><i class="cdot" style="background:${COLORS[g.color]||COLORS.teal}"></i>${esc(g.name)}</span><span class="${it.k==='late'?'due-over':''}">${I('cal','sm')}${fmtMD(m.due)}（${leftLabel(m.due)}）</span><span>タスク ${p.done}/${p.total}</span></div>${m.doneDef?`<div class="tdesc">達成基準：${esc(m.doneDef)}</div>`:''}
+      <p class="hint">${it.k==='late'?'達成したなら「達成にする」、まだなら期限を延ばしてください（3か月以内）。':'3か月以内に進めるため、次にやることを1つ決めてください。'}</p>`;
+    if(it.k==='late') acts=rvBtn('msdone','達成にする',true)+rvBtn('ext14','2週間延ばす')+rvBtn('extME','月末まで延ばす')+`<span class="rvdate"><input type="date" class="inp" id="rvDate" max="${lim}" value="${addDays(td,14)>lim?lim:addDays(td,14)}" aria-label="新しい期限">${rvBtn('extSet','この日にする')}</span>`+rvBtn('msdel','削除');
+    else acts=rvBtn('addtask','タスクを追加',!p.total)+(p.total?rvBtn('msdone','達成にする',true):'');
+  } else if(it.k==='plan'){
+    const g=goal(it.gid), last=g.milestones.filter(m=>m.status==='done').sort((a,b)=>b.doneAt-a.doneAt)[0];
+    pill='3か月以内の計画がない目標'; title=g.name;
+    body=`${g.doneDef?`<div class="tdesc">達成基準：${esc(g.doneDef)}</div>`:''}<div class="tmeta">${last?`<span>直近の達成：${esc(last.name)}</span>`:'<span>まだマイルストーンを達成していません</span>'}${g.due?`<span>目標期限 ${fmtMD(g.due)}</span>`:''}</div><p class="hint">${fmtMD(lim)}までに到達する点を1つ決めます。今は進めない場合は保留にします。</p>`;
+    acts=rvBtn('addms','マイルストーンを追加',true)+rvBtn('hold','保留にする');
+  } else {
+    const t=S.tasks.get(it.tid); pill=it.k==='over'?'期限切れのタスク':'3か月以上手つかずのタスク'; lvl=it.k==='over'?'bad':'hold';
+    title=t.title; const di=dueInfo(t), pr=proj(t.projectId), f=t.msId&&msFind(t.msId);
+    body=`<div class="tmeta">${di?`<span class="${di.cls}">${I('cal','sm')}${esc(di.txt)}</span>`:`<span>${fmtMD(ymd(new Date(t.createdAt)))}に登録</span>`}${pr?`<span>${esc(pr.name)}</span>`:''}${f?`<span>${I('target','sm')}${esc(f.g.name)}</span>`:''}</div>${t.desc?`<div class="tdesc">${esc(t.desc)}</div>`:''}<p class="hint">${it.k==='over'?'やる日を決め直すか、終わっていれば完了にします。':'やるなら日付を決め、やらないなら削除します。'}</p>`;
+    acts=rvBtn('dToday','今日',true)+rvBtn('dTom','明日')+rvBtn('dMon','来週月曜')+(it.k==='stale'?rvBtn('dNextM','来月1日'):rvBtn('dNone','日付なし'))+rvBtn('tDone','完了')+rvBtn('tDel','削除');
+  }
+  h.push(`<div class="card rvcard"><span class="pill ${lvl}" style="align-self:flex-start">${pill}</span><div class="rvtitle">${esc(title)}</div>${body}<div class="rvacts">${acts}</div></div>
+    <div class="row2" style="margin-top:12px"><button class="btn" data-rv="skip">スキップ</button><button class="btn" data-act="endReview">中断する</button></div>`);
+}
+async function rvAction(a){
+  const it=RV&&RV.q[RV.i]; if(!it) return;
+  const td=T(), lim=limit3(), clamp=d=>d>lim?lim:d;
+  const f=it.mid?msFind(it.mid):null, t=it.tid?S.tasks.get(it.tid):null;
+  const followIdle=(gid,mid)=>{ if(!msTasks(mid).some(x=>!x.done)) RV.q.splice(RV.i+1,0,{k:'idle',gid,mid}); };
+  const setMsDue=d=>{ f.m.due=clamp(d); Persist.putMeta(); Persist.log('update',gref(f.m),`マイルストーンの期限→${fmtMD(f.m.due)}`); followIdle(f.g.id,f.m.id); render(true); };
+  const setDue=d=>{ t.due=d; if(!d) t.time=''; Persist.putTask(t); Persist.log('resched',t,`見直し→${d?fmtMD(d):'日付なし'}`); render(true); };
+  switch(a){
+    case 'skip': RV.i++; return render(true);
+    case 'msdone': return msDone(it.mid);
+    case 'ext14': return setMsDue(addDays(td,14));
+    case 'extME': { let e=ymd(new Date(pYmd(td).getFullYear(),pYmd(td).getMonth()+1,0)); if(diffDays(e,td)<7) e=ymd(new Date(pYmd(td).getFullYear(),pYmd(td).getMonth()+2,0)); return setMsDue(e); }
+    case 'extSet': { const v=$('#rvDate').value; if(!v) return toast('日付を選んでください'); if(v>lim) return toast(`${fmtMD(lim)}までの日付にしてください`); return setMsDue(v); }
+    case 'msdel': { if(await confirmSheet(`「${f.m.name}」を削除しますか？（紐付いたタスクは残ります）`,'削除')){ msTasks(f.m.id).forEach(x=>{x.msId='';Persist.putTask(x);}); f.g.milestones=f.g.milestones.filter(x=>x.id!==f.m.id); Persist.putMeta(); render(true); } return; }
+    case 'addtask': return openQuickAdd({msId:it.mid});
+    case 'addms': { const g=goal(it.gid), m=await editMsSheet(g); if(m){ followIdle(g.id,m.id); render(true); } return; }
+    case 'hold': { const g=goal(it.gid); g.status='hold'; Persist.putMeta(); return render(true); }
+    case 'dToday': return setDue(td);
+    case 'dTom': return setDue(addDays(td,1));
+    case 'dMon': return setDue(addDays(mondayOf(td),7));
+    case 'dNextM': return setDue(ymd(new Date(pYmd(td).getFullYear(),pYmd(td).getMonth()+1,1)));
+    case 'dNone': return setDue('');
+    case 'tDone': Sound.play('done'); return completeTask(t.id);
+    case 'tDel': { if(await confirmSheet(`「${t.title}」を削除しますか？`,'削除')){ deleteTask(t.id); render(true); } return; }
+  }
+}
+
 /* ========= views ========= */
 let V={type:'today'}; const hist=[];
 let calCursor={}; let calSel={};
@@ -917,6 +1068,7 @@ function setPref(patch,v=V){ S.meta.prefs[vkey(v)]={...pref(v),...patch}; Persis
 function defSort(v){ return (v.type==='today'||v.type==='upcoming')?'smart':(v.type==='filter'||v.type==='label'||v.type==='all')?'due':'manual'; }
 function layouts(v){
   switch(v.type){ case 'all':case 'inbox':case 'project':case 'label':case 'filter': return ['list','board','calendar'];
+    case 'goals': return ['list','board'];
     case 'today': return ['list','board']; case 'upcoming': return ['list','calendar']; case 'completed': return ['list','calendar']; default: return []; }
 }
 function go(v){ hist.push(V); V=v; render(true); }
@@ -928,7 +1080,7 @@ function renderChrome(){
   const ic={all:I('list','lg'),today:todayIcon(),upcoming:I('upcoming','lg'),goals:I('target','lg'),browse:I('browse','lg')};
   $$('#tabs button').forEach(b=>b.querySelector('.ti').innerHTML=ic[b.dataset.tab]);
 }
-const TAB_OF={all:'all',today:'today',upcoming:'upcoming',goals:'goals',goal:'goals'};
+const TAB_OF={all:'all',today:'today',upcoming:'upcoming',goals:'goals',goal:'goals',review:'goals'};
 function render(resetScroll){
   if(!S.ready||!S.meta) return;
   const main=$('#main'), st=main.scrollTop;
@@ -938,9 +1090,9 @@ function render(resetScroll){
   const ls=layouts(V), p=pref();
   const layout=ls.includes(p.layout)?p.layout:'list';
   const seg=$('#layoutSeg'); seg.hidden=ls.length<2;
-  seg.innerHTML=ls.map(l=>`<button data-layout="${l}" aria-pressed="${l===layout}" aria-label="${{list:'リスト',board:'ボード',calendar:'カレンダー'}[l]}">${I({list:'list',board:'board',calendar:'cal'}[l])}</button>`).join('');
+  seg.innerHTML=ls.map(l=>`<button data-layout="${l}" aria-pressed="${l===layout}" aria-label="${V.type==='goals'?{list:'一覧',board:'3か月ロードマップ'}[l]:{list:'リスト',board:'ボード',calendar:'カレンダー'}[l]}">${I({list:'list',board:'board',calendar:'cal'}[l])}</button>`).join('');
   $('#menuBtn').hidden=!['all','inbox','today','upcoming','project','label','filter','goal'].includes(V.type);
-  $('#fab').hidden=['activity','settings'].includes(V.type);
+  $('#fab').hidden=['activity','settings','review'].includes(V.type);
   main.classList.toggle('board-mode',layout==='board');
   $('#app').classList.toggle('wide',layout==='board'||layout==='calendar');
   let title='',sub='',dot='';
@@ -953,8 +1105,9 @@ function render(resetScroll){
     case 'project': { const pr=proj(V.id); if(!pr){ V={type:'browse'}; return render(); } title=pr.name; dot=COLORS[pr.color]; renderProjectView(h,V.id,layout); break; }
     case 'label': { const l=label(V.id); if(!l){ V={type:'browse'}; return render(); } title='@'+l.name; dot=COLORS[l.color]; renderTaskSet(h,activeTasks().filter(t=>(t.labels||[]).includes(l.id)),layout,{labelId:l.id,scope:t=>(t.labels||[]).includes(l.id)}); break; }
     case 'filter': { const f=filt(V.id); if(!f){ V={type:'browse'}; return render(); } title=f.name; dot=COLORS[f.color]; sub=f.query; renderFilter(h,f,layout); break; }
-    case 'goals': title='目標'; sub=`3か月の目安：${fmtMD(limit3())}まで（今の四半期末 ${fmtMD(qEnd())}）`; renderGoals(h); break;
+    case 'goals': title='目標'; sub=`3か月の目安：${fmtMD(limit3())}まで（今の四半期末 ${fmtMD(qEnd())}）`; if(layout==='board') renderRoadmap(h); else renderGoals(h); break;
     case 'goal': { const g=goal(V.id); if(!g){ V={type:'goals'}; return render(); } title=g.name; dot=COLORS[g.color]||COLORS.teal; renderGoal(h,g); break; }
+    case 'review': title='週次の見直し'; renderReview(h); break;
     case 'browse': title='閲覧'; renderBrowse(h); break;
     case 'search': title='検索'; renderSearch(h); break;
     case 'completed': title='完了済み'; renderCompleted(h,layout); break;
@@ -1052,6 +1205,7 @@ function renderToday(h,layout){
   const list=activeTasks().filter(t=>t.due&&t.due<=td);
   if(layout==='board') return renderBoard(h,list,{due:td});
   welcome(h);
+  reviewBanner(h);
   const ng=goals().filter(g=>g.status==='active'&&['bad','warn'].includes(health(g).lvl));
   if(ng.length) h.push(`<button class="hbanner warn" data-go='{"type":"goals"}' style="width:100%;text-align:left">${I('target','sm')} 対応が必要な目標が${ng.length}件あります（${esc(ng.map(g=>g.name+'：'+health(g).label).join('、'))}）</button>`);
   const over=list.filter(t=>t.due<td), now=list.filter(t=>t.due===td);
@@ -1293,8 +1447,8 @@ function renderActivity(h){
   const evs=[]; for(const a of S.activity.values()) evs.push(...a);
   const list=evs.filter(e=>actFilter==='all'||e.type===actFilter||(actFilter==='complete'&&e.type==='uncomplete')).sort((a,b)=>b.t-a.t).slice(0,300);
   if(!list.length) return emptyState(h,'記録はまだありません','タスクを追加・完了すると、ここに履歴が残ります。');
-  const verb={add:'追加',complete:'完了',uncomplete:'未完了に戻す',update:'変更',delete:'削除',resched:'日付変更',msdone:'達成（マイルストーン）',msundo:'達成を取り消し',goaladd:'目標に設定',goaldone:'達成（目標）'};
-  const icon={msdone:'target',msundo:'undo',goaladd:'target',goaldone:'target',add:'plus',complete:'check',uncomplete:'undo',update:'edit',delete:'trash',resched:'cal'};
+  const verb={add:'追加',complete:'完了',uncomplete:'未完了に戻す',update:'変更',delete:'削除',resched:'日付変更',msdone:'達成（マイルストーン）',msundo:'達成を取り消し',goaladd:'目標に設定',goaldone:'達成（目標）',review:'完了'};
+  const icon={review:'done',msdone:'target',msundo:'undo',goaladd:'target',goaldone:'target',add:'plus',complete:'check',uncomplete:'undo',update:'edit',delete:'trash',resched:'cal'};
   let last='';
   list.forEach(e=>{ const d=ymd(new Date(e.t)); if(d!==last){ if(last) h.push('</div>'); h.push(`<div class="group"><div class="ghead">${fmtMD(d)} <span class="gsub">${WD[pYmd(d).getDay()]}曜日</span></div>`); last=d; }
     const pr=proj(e.pid);
@@ -1303,6 +1457,7 @@ function renderActivity(h){
 }
 function renderSettings(h){
   h.push(`<div class="bsec">生産性</div><div class="blist"><button class="bitem" data-act="setGoal">${I('flag')}<span class="bname">1日の完了目標</span><span class="bnum">${S.meta.goal}件</span>${I('chev','sm chev')}</button></div>`);
+  h.push(`<div class="bsec">目標</div><div class="blist"><button class="bitem" data-act="setReviewDay">${I('check')}<span class="bname">週次の見直しの曜日</span><span class="bnum">${reviewDay()<0?'しない':WD[reviewDay()]+'曜日'}</span>${I('chev','sm chev')}</button><button class="bitem" data-act="review">${I('target')}<span class="bname">週次の見直しを今すぐ始める</span>${I('chev','sm chev')}</button></div>`);
   h.push(`<div class="bsec">操作</div><div class="blist"><button class="bitem" data-act="toggleSound">${I('activity')}<span class="bname">追加・完了時の効果音</span><span class="bnum">${S.meta.sound===false?'オフ':'オン'}</span>${I('chev','sm chev')}</button></div>`);
   h.push(`<div class="bsec">バックアップ</div><div class="blist">
     <button class="bitem" data-act="export">${I('down')}<span class="bname">データを書き出す（JSON）</span>${I('chev','sm chev')}</button>
@@ -1597,6 +1752,7 @@ $('#main').addEventListener('click',async e=>{
   const j=t.closest('[data-jump]'); if(j){ const el=document.getElementById('d-'+j.dataset.jump); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); return; }
   const cn=t.closest('[data-cal]'); if(cn){ const k=vkey(V), td=T(); if(cn.dataset.cal==='today'){ calCursor[k]=td.slice(0,7); calSel[k]=td; } else { const [y,m]=(calCursor[k]||td.slice(0,7)).split('-').map(Number); const d=new Date(y,m-1+ +cn.dataset.cal,1); calCursor[k]=ymd(d).slice(0,7); } render(); return; }
   const cd=t.closest('[data-day]'); if(cd){ calSel[vkey(V)]=cd.dataset.day; render(); return; }
+  const rv=t.closest('[data-rv]'); if(rv){ rvAction(rv.dataset.rv); return; }
   const md=t.closest('[data-msdone]'); if(md){ msDone(md.dataset.msdone); return; }
   const mu=t.closest('[data-msundo]'); if(mu){ msUndo(mu.dataset.msundo); return; }
   const mm=t.closest('[data-msmenu]'); if(mm){ msMenu(mm.dataset.msmenu); return; }
@@ -1611,6 +1767,10 @@ $('#main').addEventListener('click',async e=>{
     case 'newLabel': { const r=await nameSheet({title:'ラベルを追加',placeholder:'例：決裁待ち',color:'gray',validate:v=>S.meta.labels.some(l=>l.name===v)?'同じ名前のラベルがあります':''}); if(r){ S.meta.labels.push({id:newId(),name:r.name.replace(/^@/,''),color:r.color}); Persist.putMeta(); render(); } return; }
     case 'newFilter': { const r=await filterSheet(null); if(r){ const f={id:newId(),name:r.name,color:r.color,query:r.query}; S.meta.filters.push(f); Persist.putMeta(); go({type:'filter',id:f.id}); } return; }
     case 'editFilter': return editFilter();
+    case 'review': return startReview();
+    case 'endReview': RV=null; return goTab('goals');
+    case 'goToday': RV=null; return goTab('today');
+    case 'setReviewDay': return optionsSheet('週次の見直しの曜日',[...WD.map((w,i)=>({label:w+'曜日',checked:reviewDay()===i,run:()=>{S.meta.reviewDay=i;Persist.putMeta();render();}})),{label:'見直しをしない',checked:reviewDay()<0,run:()=>{S.meta.reviewDay=-1;Persist.putMeta();render();}}]);
     case 'newGoal': { const g=await editGoalSheet(null); if(g) go({type:'goal',id:g.id}); return; }
     case 'editGoal': { const g=goal(V.id); if(g&&await editGoalSheet(g)) render(); return; }
     case 'newMs': { const g=goal(V.id); if(g&&await editMsSheet(g)) render(); return; }
