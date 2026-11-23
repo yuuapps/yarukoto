@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="icon-192.png">
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style>
-<script>window.APP_VER="1.2.0";</script>
+<script>window.APP_VER="1.3.0";</script>
 </head><body>
 <title>やること帳</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -67,7 +67,7 @@ svg.i.lg{width:24px;height:24px}
 main{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding-left:var(--gx);padding-right:var(--gy);padding-block:4px 110px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 main.board-mode{overflow:hidden;display:flex;flex-direction:column;padding-bottom:0}
 
-.tabs{display:grid;grid-template-columns:repeat(4,1fr);background:var(--surface);border-top:1px solid var(--line);padding-left:var(--gx);padding-right:var(--gy);padding-block:5px 4px}
+.tabs{display:grid;grid-template-columns:repeat(5,1fr);background:var(--surface);border-top:1px solid var(--line);padding-left:var(--gx);padding-right:var(--gy);padding-block:5px 4px}
 .tabs button{display:flex;flex-direction:column;align-items:center;gap:1px;padding:4px 0;border-radius:12px;color:var(--muted);font-size:11px;font-weight:600}
 .tabs button[aria-current="true"]{color:var(--accent);background:var(--accent-soft)}
 #fab{position:absolute;right:max(18px, calc(env(safe-area-inset-right, 0px) + 12px));bottom:76px;width:58px;height:58px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;box-shadow:var(--shadow);z-index:5}
@@ -196,6 +196,38 @@ main.board-mode{overflow:hidden;display:flex;flex-direction:column;padding-botto
 .ev .evb{flex:1;min-width:0;overflow-wrap:anywhere}
 .ev .evb small{display:block;color:var(--muted);font-size:12px}
 
+/* goals */
+.glist{display:flex;flex-direction:column;gap:10px;margin-top:8px}
+.gcard{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:8px;text-align:left;width:100%}
+.gcard:active{background:var(--surface2)}
+.gtop{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.gname{font-size:16px;flex:1;min-width:0;overflow-wrap:anywhere}
+.pill{font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:10px;background:var(--surface2);color:var(--muted);white-space:nowrap}
+.pill.ok{background:color-mix(in srgb,var(--d-today) 15%,transparent);color:var(--d-today)}
+.pill.warn{background:color-mix(in srgb,var(--d-tom) 18%,transparent);color:var(--d-tom)}
+.pill.bad{background:color-mix(in srgb,var(--d-over) 15%,transparent);color:var(--d-over)}
+.pill.done{background:var(--accent-soft);color:var(--accent)}
+.bar{height:6px;border-radius:3px;background:var(--surface2);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent);border-radius:3px}
+.gnext{font-size:13px;font-weight:600}
+.hbanner{display:block;margin-top:10px;padding:10px 12px;border-radius:12px;font-size:13px;line-height:1.55;background:var(--surface2)}
+.hbanner.bad{background:color-mix(in srgb,var(--d-over) 12%,transparent);color:var(--fg)}
+.hbanner.bad b{color:var(--d-over)}
+.hbanner.warn{background:color-mix(in srgb,var(--d-tom) 14%,transparent);color:var(--fg)}
+.hbanner.warn b,.hbanner.warn svg{color:var(--d-tom)}
+.gdesc{margin-top:10px;display:flex;flex-direction:column;gap:10px}
+.gtext{white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px}
+.ms{border-left:3px solid var(--accent);padding-left:12px;margin-top:14px}
+.ms.late{border-left-color:var(--d-over)}
+.mshead{display:flex;gap:10px;align-items:flex-start;padding-bottom:6px;border-bottom:1px solid var(--line)}
+.mscheck{width:26px;height:26px;border-radius:8px;border:2px solid var(--accent);display:grid;place-items:center;color:transparent;flex:none;margin-top:1px}
+.mscheck:hover{color:var(--accent)}
+.mscheck svg{width:15px;height:15px;stroke-width:2.6}
+.msbody{flex:1;min-width:0}
+.msname{font-weight:700;overflow-wrap:anywhere}
+.mshead .icon-btn{width:32px;height:32px}
+.tabs button{font-size:10.5px}
+
 /* sheets */
 #layer{position:fixed;inset:0;z-index:30}
 #layer .scrim{position:absolute;inset:0;background:var(--scrim);animation:fade .18s ease}
@@ -266,6 +298,7 @@ textarea.inp{resize:none;min-height:44px;line-height:1.45}
     <button data-tab="all"><span class="ti"></span>すべて</button>
     <button data-tab="today"><span class="ti"></span>今日</button>
     <button data-tab="upcoming"><span class="ti"></span>近日予定</button>
+    <button data-tab="goals"><span class="ti"></span>目標</button>
     <button data-tab="browse"><span class="ti"></span>閲覧</button>
   </nav>
 </div>
@@ -326,6 +359,7 @@ const PATHS={
  down:'<path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 19.5h14"/>',
  up:'<path d="M12 15V4M7.5 8.5L12 4l4.5 4.5M5 19.5h14"/>',
  undo:'<path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/>',
+ target:'<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><path d="M12 12h.01" stroke-width="3"/>',
  sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/>',
 };
 const I=(n,c='')=>`<svg class="i ${c}" viewBox="0 0 24 24" aria-hidden="true">${PATHS[n]||''}</svg>`;
@@ -354,7 +388,7 @@ document.addEventListener('pointerdown',Sound.unlock,{passive:true});
 /* ========= state ========= */
 const S={ready:false,tasks:new Map(),meta:null,activity:new Map()};
 const DEFAULT_META=()=>({
-  v:1,goal:5,welcomeDone:false,prefs:{},
+  v:1,goal:5,welcomeDone:false,prefs:{},goals:[],
   projects:[
     {id:'inbox',name:'インボックス',color:'gray',sections:[]},
     {id:newId(),name:'仕事',color:'teal',sections:[{id:newId(),name:'進行中'},{id:newId(),name:'次にやる'},{id:newId(),name:'いつか'}]},
@@ -370,6 +404,7 @@ function normalizeMeta(m){
   m.projects=m.projects||[];m.labels=m.labels||[];m.filters=m.filters||[];m.prefs=m.prefs||{};
   if(!m.projects.find(p=>p.id==='inbox')) m.projects.unshift({id:'inbox',name:'インボックス',color:'gray',sections:[]});
   m.projects.forEach(p=>p.sections=p.sections||[]);
+  m.goals=m.goals||[]; m.goals.forEach(g=>{ g.milestones=g.milestones||[]; g.status=g.status||'active'; });
   if(!m.goal) m.goal=5;
   return m;
 }
@@ -590,6 +625,7 @@ function parseQuick(text,base=T()){
   const cut=str=>{ s=s.replace(str,' '); };
   let m;
   if((m=s.match(/\s[pP]([1-4])(?=\s)/))){ out.priority=+m[1]; out.tokens.push(['flag',`優先度${m[1]}`]); cut(m[0]); }
+  if((m=s.match(/[>＞]([^\s#@>＞]+)/))){ out.goalRef=m[1]; cut(m[0]); }
   if((m=s.match(/#([^\s#@]+)/))){ out.projectName=m[1]; cut(m[0]); }
   out.labelNames=[]; for(const x of [...s.matchAll(/@([^\s#@]+)/g)]){ out.labelNames.push(x[1]); }
   s=s.replace(/@([^\s#@]+)/g,' ');
@@ -675,7 +711,7 @@ const sortT=(arr,mode)=>arr.slice().sort(SORTS[mode]||SORTS.manual);
 function maxOrder(){ let m=0; for(const t of S.tasks.values()) if((t.order??0)>m) m=t.order; return m; }
 function makeTask(o){
   return {id:newId(),title:o.title||'',desc:o.desc||'',projectId:o.projectId||'inbox',sectionId:o.sectionId||'',parentId:o.parentId||'',
-    due:o.due||'',time:o.time||'',recur:o.recur||null,priority:o.priority||4,labels:o.labels||[],done:false,doneAt:0,
+    msId:o.msId||'',due:o.due||'',time:o.time||'',recur:o.recur||null,priority:o.priority||4,labels:o.labels||[],done:false,doneAt:0,
     createdAt:Date.now(),updatedAt:Date.now(),order:maxOrder()+1};
 }
 function ensureLabel(name){
@@ -713,6 +749,165 @@ function deleteTask(id){
   Persist.log('delete',t, ds.length?`サブタスク${ds.length}件も削除`:'');
 }
 
+/* ========= goals & milestones ========= */
+const addMonths=(s,n)=>{const d=pYmd(s);const y=d.getFullYear(),m=d.getMonth()+n;return ymd(new Date(y,m,Math.min(d.getDate(),dim(y,m))));};
+const limit3=()=>addMonths(T(),3);
+function qEnd(){ const d=new Date(); return ymd(new Date(d.getFullYear(),Math.floor(d.getMonth()/3)*3+3,0)); }
+const goals=()=>S.meta.goals||[];
+const goal=id=>goals().find(g=>g.id===id);
+function msFind(id){ if(!id) return null; for(const g of goals()){ const m=g.milestones.find(x=>x.id===id); if(m) return {g,m}; } return null; }
+const msTasks=mid=>all().filter(t=>t.msId===mid);
+function defaultMsDue(){ const q=qEnd(), l=limit3(); return q>T()&&q<=l?q:l; }
+function leftLabel(d){ const n=diffDays(d,T()); return n<0?`${-n}日超過`:n===0?'今日まで':`あと${n}日`; }
+function msProgress(m){ const ts=msTasks(m.id), d=ts.filter(t=>t.done).length; return {done:d,total:ts.length,open:ts.length-d}; }
+const openMs=g=>g.milestones.filter(m=>m.status!=='done').sort((a,b)=>a.due.localeCompare(b.due));
+function health(g){
+  if(g.status==='hold') return {lvl:'hold',label:'保留'};
+  if(g.status==='drop') return {lvl:'hold',label:'中止'};
+  if(g.status==='done') return {lvl:'done',label:'達成'};
+  const td=T(), lim=limit3(), open=openMs(g);
+  const late=open.filter(m=>m.due<td);
+  if(late.length) return {lvl:'bad',label:'遅延',detail:`「${late[0].name}」の期限を過ぎています。期限を見直すか、達成にしてください。`};
+  const near=open.filter(m=>m.due<=lim);
+  if(!near.length) return {lvl:'bad',label:'要計画',detail:`3か月以内（${fmtMD(lim)}まで）のマイルストーンがありません。次の到達点を決めてください。`};
+  const idle=near.find(m=>!msTasks(m.id).some(t=>!t.done));
+  if(idle) return {lvl:'warn',label:'次の一歩なし',detail:msProgress(idle).total?`「${idle.name}」のタスクはすべて完了しています。達成にするか、次のタスクを追加してください。`:`「${idle.name}」にタスクがありません。次にやることを1つ追加してください。`};
+  return {lvl:'ok',label:'順調'};
+}
+function goalProgress(g){ return {done:g.milestones.filter(m=>m.status==='done').length,total:g.milestones.length}; }
+function resolveGoalRef(name){
+  const n=name.toLowerCase(), act=goals().filter(g=>g.status==='active');
+  const g=act.find(g=>g.name.toLowerCase()===n)||act.find(g=>g.name.toLowerCase().includes(n));
+  if(g){ const m=openMs(g)[0]; return m?{g,m}:{g,m:null}; }
+  for(const x of act) for(const m of openMs(x)) if(m.name.toLowerCase().includes(n)) return {g:x,m};
+  return null;
+}
+function msOptions(cur){
+  let o=`<option value="">なし</option>`;
+  goals().filter(g=>g.status==='active'||g.milestones.some(m=>m.id===cur)).forEach(g=>{
+    const ms=g.milestones.filter(m=>m.status!=='done'||m.id===cur).sort((a,b)=>a.due.localeCompare(b.due));
+    if(ms.length) o+=`<optgroup label="${esc(g.name)}">`+ms.map(m=>`<option value="${m.id}" ${m.id===cur?'selected':''}>${esc(m.name)}（${fmtMD(m.due)}）</option>`).join('')+'</optgroup>';
+  });
+  return o;
+}
+const hasMs=()=>goals().some(g=>g.status==='active'&&g.milestones.some(m=>m.status!=='done'));
+function goalCard(g){
+  const hl=health(g), pr=goalProgress(g), nx=openMs(g)[0], pct=pr.total?Math.round(pr.done/pr.total*100):0;
+  return `<button class="gcard" data-go='${esc(JSON.stringify({type:'goal',id:g.id}))}'>
+    <div class="gtop"><i class="cdot" style="background:${COLORS[g.color]||COLORS.teal}"></i><b class="gname">${esc(g.name)}</b><span class="pill ${hl.lvl}">${hl.label}</span></div>
+    <div class="bar" role="img" aria-label="達成したマイルストーン ${pr.done}/${pr.total}"><i style="width:${pct}%"></i></div>
+    <div class="tmeta"><span>マイルストーン ${pr.done}/${pr.total}</span>${g.due?`<span>${I('flag','sm')}目標期限 ${fmtMD(g.due)}</span>`:''}</div>
+    ${nx&&g.status==='active'?`<div class="gnext ${nx.due<T()?'due-over':''}">次：${esc(nx.name)}・${fmtMD(nx.due)}（${leftLabel(nx.due)}）</div>`:''}
+  </button>`;
+}
+function renderGoals(h){
+  const gs=goals();
+  if(!gs.length){ h.push(`<div class="empty">${I('target')}<h3>目標を立てましょう</h3><p>半年〜数年かけて達成したいことを「目標」に、3か月以内の到達点を「マイルストーン」に分けて進めます。右下の＋から追加できます。</p></div>`); return; }
+  const rank={bad:0,warn:1,ok:2};
+  const act=gs.filter(g=>g.status==='active').sort((a,b)=>rank[health(a).lvl]-rank[health(b).lvl]||((openMs(a)[0]||{due:'9'}).due).localeCompare((openMs(b)[0]||{due:'9'}).due));
+  const hold=gs.filter(g=>g.status==='hold'), fin=gs.filter(g=>g.status==='done'||g.status==='drop');
+  if(act.length){ h.push(`<div class="bsec">進行中 ${act.length}</div><div class="glist">`+act.map(goalCard).join('')+'</div>'); }
+  if(hold.length){ h.push(`<div class="bsec">保留 ${hold.length}</div><div class="glist">`+hold.map(goalCard).join('')+'</div>'); }
+  if(fin.length){ h.push(`<div class="bsec">達成・中止 ${fin.length}</div><div class="glist">`+fin.map(goalCard).join('')+'</div>'); }
+}
+function msBlock(m){
+  const p=msProgress(m), late=m.due<T(), near=diffDays(m.due,T())<=14;
+  const ts=sortT(msTasks(m.id).filter(t=>!t.done),'due');
+  let s=`<div class="ms ${late?'late':''}"><div class="mshead"><button class="mscheck" data-msdone="${m.id}" aria-label="「${esc(m.name)}」を達成にする">${I('check')}</button>
+    <div class="msbody"><div class="msname">${esc(m.name)}</div><div class="tmeta"><span class="${late?'due-over':near?'due-tom':''}">${I('cal','sm')}${fmtMD(m.due)}（${leftLabel(m.due)}）</span><span>タスク ${p.done}/${p.total}</span></div>${m.doneDef?`<div class="tdesc">達成基準：${esc(m.doneDef)}</div>`:''}</div>
+    <button class="icon-btn" data-msmenu="${m.id}" aria-label="マイルストーンのメニュー">${I('more')}</button></div>`;
+  if(p.total&&!p.open) s+=`<button class="btn sm pri" data-msdone="${m.id}" style="margin:4px 0 2px">タスクがすべて完了しました。達成にする</button>`;
+  s+=ts.map(t=>taskRow(t,{showProject:true,noGoal:true})).join('');
+  return s+addRow({msId:m.id},'このマイルストーンのタスクを追加')+'</div>';
+}
+function renderGoal(h,g){
+  const hl=health(g), pr=goalProgress(g), pct=pr.total?Math.round(pr.done/pr.total*100):0;
+  if(hl.detail) h.push(`<div class="hbanner ${hl.lvl}"><b>${hl.label}</b>　${esc(hl.detail)}</div>`);
+  h.push(`<div class="card gdesc"><div class="gtop"><span class="pill ${hl.lvl}">${hl.label}</span><span class="tmeta" style="margin:0">マイルストーン ${pr.done}/${pr.total}${g.due?`・目標期限 ${fmtMD(g.due)}（${leftLabel(g.due)}）`:''}</span></div>
+    <div class="bar"><i style="width:${pct}%"></i></div>
+    ${g.why?`<div><div class="flabel">なぜやるか</div><div class="gtext">${esc(g.why)}</div></div>`:''}
+    ${g.doneDef?`<div><div class="flabel">達成基準</div><div class="gtext">${esc(g.doneDef)}</div></div>`:''}
+    <div class="row2"><button class="btn sm" data-act="editGoal" style="flex:0 0 auto">${I('edit','sm')}目標を編集</button></div></div>`);
+  const open=openMs(g), done=g.milestones.filter(m=>m.status==='done').sort((a,b)=>b.doneAt-a.doneAt);
+  h.push(`<div class="bsec">マイルストーン<button data-act="newMs">${I('plus','sm')}追加</button></div>`);
+  if(!open.length) h.push(`<p class="mode-note">3か月以内（${fmtMD(limit3())}まで）の到達点を「追加」から登録してください。</p>`);
+  open.forEach(m=>h.push(msBlock(m)));
+  if(done.length){
+    h.push(`<div class="bsec">達成済み ${done.length}</div>`);
+    done.forEach(m=>{ const p=msProgress(m); h.push(`<div class="task done"><button class="check on" data-msundo="${m.id}" aria-label="達成を取り消す">${I('check')}</button><div class="tbody"><div class="ttitle">${esc(m.name)}</div><div class="tmeta"><span>${I('check','sm')}${fmtMD(ymd(new Date(m.doneAt)))} 達成</span><span>期限 ${fmtMD(m.due)}</span><span>タスク ${p.done}/${p.total}</span></div></div></div>`); });
+  }
+}
+function formSheet({title,fields,ok='保存',validate}){
+  return new Promise(res=>{
+    let col=null;
+    const html=fields.map(f=>{
+      if(f.type==='color'){ col=f.value; return `<div class="field"><span class="flabel">色</span>${colorPicker(f.value)}</div>`; }
+      const inp=f.type==='textarea'?`<textarea class="inp" id="ff_${f.id}" rows="2" placeholder="${esc(f.placeholder||'')}">${esc(f.value||'')}</textarea>`
+        :`<input class="inp" id="ff_${f.id}" type="${f.type||'text'}" value="${esc(f.value||'')}" placeholder="${esc(f.placeholder||'')}" ${f.max?`max="${f.max}"`:''} autocomplete="off">`;
+      return `<div class="field"><label for="ff_${f.id}">${esc(f.label)}</label>${inp}${f.hint?`<span class="hint">${esc(f.hint)}</span>`:''}</div>`;
+    }).join('');
+    const sh=openSheet(`<h2>${esc(title)}</h2><form id="ff" novalidate style="display:flex;flex-direction:column;gap:12px">${html}<div class="err" id="ffErr"></div><div class="row2"><button type="button" class="btn" data-r="0">キャンセル</button><button class="btn pri" type="submit">${esc(ok)}</button></div></form>`,()=>res(null));
+    if(fields.some(f=>f.type==='color')) bindColors(sh,c=>col=c);
+    const first=sh.querySelector('input,textarea'); if(first) first.focus();
+    sh.querySelector('[data-r="0"]').onclick=()=>closeSheet();
+    $('#ff',sh).addEventListener('submit',e=>{ e.preventDefault(); const v={}; fields.forEach(f=>{ v[f.id]=f.type==='color'?col:$('#ff_'+f.id,sh).value.trim(); });
+      const err=validate&&validate(v); if(err){ $('#ffErr',sh).textContent=err; return; } sheetClose=null; closeSheet(); res(v); });
+  });
+}
+const gref=x=>({id:x.id,title:x.name,projectId:''});
+async function editGoalSheet(g){
+  const v=await formSheet({title:g?'目標を編集':'目標を追加',fields:[
+    {id:'name',label:'目標',value:g&&g.name,placeholder:'例：PM試験に合格する'},
+    {id:'why',label:'なぜやるか',type:'textarea',value:g&&g.why,placeholder:'例：大規模な調達・構築管理を体系立てて進められるようになるため'},
+    {id:'doneDef',label:'達成基準（何をもって達成とするか）',type:'textarea',value:g&&g.doneDef,placeholder:'例：秋期試験で合格する'},
+    {id:'due',label:'目標期限（任意）',type:'date',value:g&&g.due},
+    {id:'color',type:'color',value:(g&&g.color)||'teal'}],
+    validate:v=>v.name?'':'目標を入力してください'});
+  if(!v) return null;
+  if(g) Object.assign(g,{name:v.name,why:v.why,doneDef:v.doneDef,due:v.due,color:v.color});
+  else { g={id:newId(),name:v.name,why:v.why,doneDef:v.doneDef,due:v.due,color:v.color,status:'active',createdAt:Date.now(),doneAt:0,milestones:[]}; S.meta.goals.push(g); Persist.log('goaladd',gref(g)); }
+  Persist.putMeta(); return g;
+}
+async function editMsSheet(g,m){
+  const lim=limit3();
+  const v=await formSheet({title:m?'マイルストーンを編集':'マイルストーンを追加',fields:[
+    {id:'name',label:'到達点（3か月以内に到達する状態）',value:m&&m.name,placeholder:'例：午後Ⅰの過去問3年分を解き終える'},
+    {id:'doneDef',label:'達成基準（任意）',type:'textarea',value:m&&m.doneDef,placeholder:'例：全問を時間内に解き、解説まで確認した'},
+    {id:'due',label:`期限（${fmtMD(lim)}まで）`,type:'date',value:(m&&m.due)||defaultMsDue(),max:lim,hint:'3か月を超える場合は、到達点を分けて登録してください'}],
+    validate:v=>!v.name?'到達点を入力してください':!v.due?'期限を入力してください':(v.due>lim&&!(m&&v.due===m.due))?`期限は${fmtMD(lim)}までにしてください。長くかかる場合は分けて登録します`:''});
+  if(!v) return null;
+  if(m) Object.assign(m,{name:v.name,doneDef:v.doneDef,due:v.due});
+  else { m={id:newId(),name:v.name,doneDef:v.doneDef,due:v.due,status:'open',createdAt:Date.now(),doneAt:0}; g.milestones.push(m); }
+  Persist.putMeta(); return m;
+}
+async function msDone(mid){
+  const f=msFind(mid); if(!f||f.m.status==='done') return;
+  const p=msProgress(f.m);
+  if(p.open&&!await confirmSheet(`未完了のタスクが${p.open}件あります。「${f.m.name}」を達成にしますか？（タスクはそのまま残ります）`,'達成にする',false)) return;
+  f.m.status='done'; f.m.doneAt=Date.now(); Persist.putMeta(); Persist.log('msdone',gref(f.m),f.g.name); Sound.play('done');
+  toast(`「${f.m.name}」を達成しました`,()=>msUndo(mid)); render();
+}
+function msUndo(mid){ const f=msFind(mid); if(!f) return; f.m.status='open'; f.m.doneAt=0; Persist.putMeta(); Persist.log('msundo',gref(f.m),f.g.name); render(); }
+function msMenu(mid){
+  const f=msFind(mid); if(!f) return;
+  optionsSheet(f.m.name,[
+    {label:'編集（名前・達成基準・期限）',icon:'edit',run:async()=>{ if(await editMsSheet(f.g,f.m)) render(); }},
+    {label:'達成にする',icon:'check',run:()=>msDone(mid)},
+    {label:'マイルストーンを削除',icon:'trash',danger:true,run:async()=>{ const ts=msTasks(mid); if(await confirmSheet(`「${f.m.name}」を削除しますか？${ts.length?`（タスク${ts.length}件は残り、紐付けだけ外れます）`:''}`,'削除')){ ts.forEach(t=>{t.msId='';Persist.putTask(t);}); f.g.milestones=f.g.milestones.filter(x=>x.id!==mid); Persist.putMeta(); render(); } }},
+  ]);
+}
+function goalMenu(){
+  const g=goal(V.id); if(!g) return;
+  const setSt=(st,label,ev)=>({label,icon:st==='done'?'check':'flag',run:()=>{ g.status=st; g.doneAt=st==='done'?Date.now():0; Persist.putMeta(); if(ev) Persist.log(ev,gref(g)); if(st==='done'){ Sound.play('done'); toast(`目標「${g.name}」を達成しました`); } render(); }});
+  const opts=[{label:'目標を編集',icon:'edit',run:async()=>{ if(await editGoalSheet(g)) render(); }},{label:'マイルストーンを追加',icon:'plus',run:async()=>{ if(await editMsSheet(g)) render(); }}];
+  if(g.status!=='active') opts.push(setSt('active','進行中に戻す'));
+  if(g.status==='active') opts.push(setSt('hold','保留にする'));
+  if(g.status!=='done') opts.push(setSt('done','目標を達成にする','goaldone'));
+  if(g.status!=='drop') opts.push(setSt('drop','中止にする'));
+  opts.push({label:'目標を削除',icon:'trash',danger:true,run:async()=>{ const ids=new Set(g.milestones.map(m=>m.id)); const ts=all().filter(t=>ids.has(t.msId)); if(await confirmSheet(`目標「${g.name}」とマイルストーン${g.milestones.length}件を削除しますか？${ts.length?`（タスク${ts.length}件は残り、紐付けだけ外れます）`:''}`,'削除')){ ts.forEach(t=>{t.msId='';Persist.putTask(t);}); S.meta.goals=S.meta.goals.filter(x=>x.id!==g.id); Persist.putMeta(); goTab('goals'); } }});
+  optionsSheet(g.name,opts);
+}
+
 /* ========= views ========= */
 let V={type:'today'}; const hist=[];
 let calCursor={}; let calSel={};
@@ -730,10 +925,10 @@ function goTab(t){ hist.length=0; V={type:t}; render(true); }
 
 function renderChrome(){
   $('#backBtn').innerHTML=I('back','lg'); $('#menuBtn').innerHTML=I('more','lg'); $('#fab').innerHTML=I('plus');
-  const ic={all:I('list','lg'),today:todayIcon(),upcoming:I('upcoming','lg'),browse:I('browse','lg')};
+  const ic={all:I('list','lg'),today:todayIcon(),upcoming:I('upcoming','lg'),goals:I('target','lg'),browse:I('browse','lg')};
   $$('#tabs button').forEach(b=>b.querySelector('.ti').innerHTML=ic[b.dataset.tab]);
 }
-const TAB_OF={all:'all',today:'today',upcoming:'upcoming'};
+const TAB_OF={all:'all',today:'today',upcoming:'upcoming',goals:'goals',goal:'goals'};
 function render(resetScroll){
   if(!S.ready||!S.meta) return;
   const main=$('#main'), st=main.scrollTop;
@@ -744,7 +939,7 @@ function render(resetScroll){
   const layout=ls.includes(p.layout)?p.layout:'list';
   const seg=$('#layoutSeg'); seg.hidden=ls.length<2;
   seg.innerHTML=ls.map(l=>`<button data-layout="${l}" aria-pressed="${l===layout}" aria-label="${{list:'リスト',board:'ボード',calendar:'カレンダー'}[l]}">${I({list:'list',board:'board',calendar:'cal'}[l])}</button>`).join('');
-  $('#menuBtn').hidden=!['all','inbox','today','upcoming','project','label','filter'].includes(V.type);
+  $('#menuBtn').hidden=!['all','inbox','today','upcoming','project','label','filter','goal'].includes(V.type);
   $('#fab').hidden=['activity','settings'].includes(V.type);
   main.classList.toggle('board-mode',layout==='board');
   $('#app').classList.toggle('wide',layout==='board'||layout==='calendar');
@@ -758,6 +953,8 @@ function render(resetScroll){
     case 'project': { const pr=proj(V.id); if(!pr){ V={type:'browse'}; return render(); } title=pr.name; dot=COLORS[pr.color]; renderProjectView(h,V.id,layout); break; }
     case 'label': { const l=label(V.id); if(!l){ V={type:'browse'}; return render(); } title='@'+l.name; dot=COLORS[l.color]; renderTaskSet(h,activeTasks().filter(t=>(t.labels||[]).includes(l.id)),layout,{labelId:l.id,scope:t=>(t.labels||[]).includes(l.id)}); break; }
     case 'filter': { const f=filt(V.id); if(!f){ V={type:'browse'}; return render(); } title=f.name; dot=COLORS[f.color]; sub=f.query; renderFilter(h,f,layout); break; }
+    case 'goals': title='目標'; sub=`3か月の目安：${fmtMD(limit3())}まで（今の四半期末 ${fmtMD(qEnd())}）`; renderGoals(h); break;
+    case 'goal': { const g=goal(V.id); if(!g){ V={type:'goals'}; return render(); } title=g.name; dot=COLORS[g.color]||COLORS.teal; renderGoal(h,g); break; }
     case 'browse': title='閲覧'; renderBrowse(h); break;
     case 'search': title='検索'; renderSearch(h); break;
     case 'completed': title='完了済み'; renderCompleted(h,layout); break;
@@ -781,6 +978,7 @@ function taskRow(t,o={}){
   if(t.recur) meta.push(`<span>${I('repeat','sm')}${esc(recurLabel(t.recur))}</span>`);
   if(kids.length) meta.push(`<span>${I('sub','sm')}${kd}/${kids.length}</span>`);
   (t.labels||[]).forEach(id=>{const l=label(id); if(l) meta.push(`<span class="lbl">${I('tag','sm')}${esc(l.name)}</span>`);});
+  if(t.msId&&!o.noGoal){ const f=msFind(t.msId); if(f) meta.push(`<span>${I('target','sm')}${esc(f.g.name)}</span>`); }
   if(o.parent){ const pt=S.tasks.get(t.parentId); if(pt) meta.push(`<span>↳ ${esc(pt.title)}</span>`); }
   if(o.showProject&&pr) meta.push(`<span class="tproj">${esc(pr.name)}${sec?' / '+esc(sec.name):''}<i class="cdot" style="background:${COLORS[pr.color]}"></i></span>`);
   const cls=`${o.card?'bcard':'task'} pr${t.priority} ${t.done?'done':''} ${o.depth?'depth'+Math.min(o.depth,2):''}`;
@@ -854,6 +1052,8 @@ function renderToday(h,layout){
   const list=activeTasks().filter(t=>t.due&&t.due<=td);
   if(layout==='board') return renderBoard(h,list,{due:td});
   welcome(h);
+  const ng=goals().filter(g=>g.status==='active'&&['bad','warn'].includes(health(g).lvl));
+  if(ng.length) h.push(`<button class="hbanner warn" data-go='{"type":"goals"}' style="width:100%;text-align:left">${I('target','sm')} 対応が必要な目標が${ng.length}件あります（${esc(ng.map(g=>g.name+'：'+health(g).label).join('、'))}）</button>`);
   const over=list.filter(t=>t.due<td), now=list.filter(t=>t.due===td);
   if(over.length){
     h.push(`<div class="group"><div class="ghead over">期限切れ <span class="gcount">${over.length}</span><button class="gact" data-act="reschedOver">今日に変更</button></div>`);
@@ -1088,13 +1288,13 @@ function renderActivity(h){
   vals.forEach((v,i)=>{ const x=pl+i*bw+3, y=yv(v); svg+=`<rect class="bar ${v<goal?'low':''}" x="${x}" y="${y}" width="${bw-6}" height="${Math.max(0,H-pb-y)}" rx="3"><title>${fmtMD(days[i])}：${v}件</title></rect>`; if(i%2===1||i===13) svg+=`<text x="${x+(bw-6)/2}" y="${H-4}" text-anchor="middle">${pYmd(days[i]).getDate()}</text>`; });
   svg+=`<line class="goal" x1="${pl}" x2="${W}" y1="${yv(goal)}" y2="${yv(goal)}"/></svg>`;
   h.push(`<div class="card chart"><div class="flabel">直近14日の完了数（点線は1日の目標 ${goal}件）</div>${svg}</div>`);
-  const kinds=[['all','すべて'],['complete','完了'],['add','追加'],['update','変更'],['delete','削除']];
+  const kinds=[['all','すべて'],['complete','完了'],['msdone','達成'],['add','追加'],['update','変更'],['delete','削除']];
   h.push('<div class="chips">'+kinds.map(([k,n])=>`<button class="chip" data-actf="${k}" aria-pressed="${actFilter===k}">${n}</button>`).join('')+'</div>');
   const evs=[]; for(const a of S.activity.values()) evs.push(...a);
   const list=evs.filter(e=>actFilter==='all'||e.type===actFilter||(actFilter==='complete'&&e.type==='uncomplete')).sort((a,b)=>b.t-a.t).slice(0,300);
   if(!list.length) return emptyState(h,'記録はまだありません','タスクを追加・完了すると、ここに履歴が残ります。');
-  const verb={add:'追加',complete:'完了',uncomplete:'未完了に戻す',update:'変更',delete:'削除',resched:'日付変更'};
-  const icon={add:'plus',complete:'check',uncomplete:'undo',update:'edit',delete:'trash',resched:'cal'};
+  const verb={add:'追加',complete:'完了',uncomplete:'未完了に戻す',update:'変更',delete:'削除',resched:'日付変更',msdone:'達成（マイルストーン）',msundo:'達成を取り消し',goaladd:'目標に設定',goaldone:'達成（目標）'};
+  const icon={msdone:'target',msundo:'undo',goaladd:'target',goaldone:'target',add:'plus',complete:'check',uncomplete:'undo',update:'edit',delete:'trash',resched:'cal'};
   let last='';
   list.forEach(e=>{ const d=ymd(new Date(e.t)); if(d!==last){ if(last) h.push('</div>'); h.push(`<div class="group"><div class="ghead">${fmtMD(d)} <span class="gsub">${WD[pYmd(d).getDay()]}曜日</span></div>`); last=d; }
     const pr=proj(e.pid);
@@ -1112,6 +1312,7 @@ function renderSettings(h){
   日付：<code>今日</code> <code>明日</code> <code>金曜</code> <code>来週の月曜</code> <code>10/30</code> <code>11月5日</code> <code>3日後</code> <code>月末</code><br>
   時刻：<code>15時</code> <code>15:30</code> <code>午後3時半</code><br>
   繰り返し：<code>毎日</code> <code>平日</code> <code>毎週月曜</code> <code>毎週月・木</code> <code>隔週金曜</code> <code>毎月10日</code> <code>毎月末</code> <code>毎年</code><br>
+  目標：<code>＞目標名</code>（その目標の直近のマイルストーンに紐付け）<br>
   優先度：<code>p1</code>（最優先）〜<code>p4</code>　プロジェクト：<code>#仕事</code>　ラベル：<code>@待ち</code>（なければ自動で作成）<br><br>
   <b>フィルターの条件</b><br>
   <code>今日</code> <code>明日</code> <code>期限切れ</code> <code>今週</code> <code>来週</code> <code>7日以内</code> <code>期限なし</code> <code>p1</code> <code>@ラベル</code> <code>#プロジェクト</code> <code>繰り返し</code> <code>時刻あり</code> <code>サブタスク</code> <code>ラベルなし</code> <code>検索:語句</code><br>
@@ -1173,6 +1374,7 @@ function openQuickAdd(preset={}){
       <input type="date" id="qaDate" value="${preset.due||''}" aria-label="期限">
       <select id="qaPrio" aria-label="優先度">${[1,2,3,4].map(n=>`<option value="${n}" ${(preset.priority||4)===n?'selected':''}>優先度${n}</option>`).join('')}</select>
       <select id="qaProj" aria-label="プロジェクト">${projOpts}</select>
+      ${hasMs()||preset.msId?`<select id="qaMs" aria-label="マイルストーン">${msOptions(preset.msId||'').replace('>なし<','>目標なし<')}</select>`:''}
       <span class="grow"></span>
       <button class="btn pri" type="submit" id="qaGo" disabled>追加</button>
     </div>
@@ -1184,6 +1386,7 @@ function openQuickAdd(preset={}){
     if(r.due) c.push(`<span class="pchip">${I('cal','sm')}${fmtMD(r.due)}${r.time?' '+r.time:''}</span>`); else if(r.time) c.push(`<span class="pchip">${I('clock','sm')}${r.time}</span>`);
     if(r.recur) c.push(`<span class="pchip">${I('repeat','sm')}${recurLabel(r.recur)}</span>`);
     if(r.priority) c.push(`<span class="pchip">${I('flag','sm')}優先度${r.priority}</span>`);
+    if(r.goalRef){ const f=resolveGoalRef(r.goalRef); c.push(f&&f.m?`<span class="pchip">${I('target','sm')}${esc(f.g.name)} / ${esc(f.m.name)}</span>`:`<span class="pchip warn">${I('target','sm')}${esc(r.goalRef)}（${f?'未達成のマイルストーンなし':'見つかりません'}）</span>`); }
     if(r.projectName){ const ex=S.meta.projects.some(p=>p.name.toLowerCase()===r.projectName.toLowerCase()); c.push(`<span class="pchip ${ex?'':'warn'}">${I('hash','sm')}${esc(r.projectName)}${ex?'':'（新規）'}</span>`); }
     r.labelNames.forEach(n=>{ const ex=S.meta.labels.some(l=>l.name.toLowerCase()===n.toLowerCase()); c.push(`<span class="pchip ${ex?'':'warn'}">${I('tag','sm')}${esc(n)}${ex?'':'（新規）'}</span>`); });
     $('#qaChips',sh).innerHTML=c.join('');
@@ -1196,7 +1399,8 @@ function openQuickAdd(preset={}){
     const [pp,ss]=$('#qaProj',sh).value.split('::');
     const parent=preset.parentId?S.tasks.get(preset.parentId):null;
     const labels=[...(preset.labels||[])]; r.labelNames.forEach(n=>{ const id=ensureLabel(n); if(!labels.includes(id)) labels.push(id); });
-    const t=makeTask({title:r.title,desc:$('#qaDesc',sh).value.trim(),
+    const gr=r.goalRef?resolveGoalRef(r.goalRef):null, msSel=$('#qaMs',sh);
+    const t=makeTask({title:r.title,desc:$('#qaDesc',sh).value.trim(),msId:(gr&&gr.m?gr.m.id:'')||(parent&&parent.msId)||(msSel?msSel.value:'')||preset.msId||'',
       projectId:r.projectName?ensureProject(r.projectName):(parent?parent.projectId:pp),
       sectionId:r.projectName?'':(parent?parent.sectionId:ss),parentId:preset.parentId||'',
       due:r.due||$('#qaDate',sh).value||'',time:r.time||'',recur:r.recur||null,
@@ -1231,6 +1435,7 @@ function openTask(id){
     <div class="field"><label for="dRecur">${I('repeat','sm')}繰り返し</label><input class="inp" id="dRecur" list="recurList" placeholder="例：毎週月曜、毎月末、平日" value="${esc(recurLabel(t.recur))}" autocomplete="off"><datalist id="recurList"><option value="毎日"><option value="平日"><option value="毎週月曜"><option value="毎週金曜"><option value="隔週"><option value="毎月1日"><option value="毎月末"><option value="毎年"></datalist><span class="hint" id="dRecurMsg"></span></div>
     <div class="field"><span class="flabel">${I('flag','sm')}優先度</span><div class="prio" id="dPrio">${[1,2,3,4].map(n=>`<button class="f${n}" data-p="${n}" aria-pressed="${t.priority===n}">${I('flag','sm')}P${n}</button>`).join('')}</div></div>
     <div class="field"><label for="dProj">${I('hash','sm')}プロジェクト</label><select class="inp" id="dProj" ${parent?'disabled':''}>${projOpts}</select></div>
+    ${hasMs()||t.msId?`<div class="field"><label for="dMs">${I('target','sm')}目標・マイルストーン</label><select class="inp" id="dMs">${msOptions(t.msId||'')}</select></div>`:''}
     <div class="field"><span class="flabel">${I('tag','sm')}ラベル</span><div class="lchips" id="dLabels">${S.meta.labels.map(l=>`<button class="chip" data-l="${l.id}" aria-pressed="${(t.labels||[]).includes(l.id)}">${esc(l.name)}</button>`).join('')}<button class="chip" data-act="newLabelInline">＋新規</button></div></div>
     <div class="field subs"><span class="flabel">${I('sub','sm')}サブタスク ${kids.length?`${kids.filter(k=>k.done).length}/${kids.length}`:''}</span><div>${kids.map(k=>taskRow(k,{kids:childrenOf(k.id)})).join('')}</div><button class="addrow" data-subadd="${id}">${I('plus')}サブタスクを追加</button></div>
     ${hist.length?`<div class="field"><span class="flabel">${I('activity','sm')}このタスクの履歴</span>${hist.slice(0,8).map(e=>`<div class="hint">${fmtMD(ymd(new Date(e.t)))} ${fmtTime(e.t)}　${verb[e.type]||e.type}${e.d?'（'+esc(e.d)+'）':''}</div>`).join('')}</div>`:''}
@@ -1241,7 +1446,7 @@ function openTask(id){
   const flush=()=>{
     if(!S.tasks.has(id)) return; const cur=t;
     const keys=Object.keys(dirty); if(!keys.length) return;
-    const nm={title:'名前',desc:'メモ',due:'期限',recur:'繰り返し',priority:'優先度',project:'プロジェクト',labels:'ラベル'};
+    const nm={title:'名前',desc:'メモ',due:'期限',recur:'繰り返し',priority:'優先度',project:'プロジェクト',labels:'ラベル',goal:'マイルストーン'};
     Persist.putTask(cur); Persist.log(keys.includes('due')&&keys.length===1?'resched':'update',cur,keys.map(k=>nm[k]).join('・')+(keys.includes('due')?`→${cur.due?fmtMD(cur.due):'なし'}`:'')); dirty={};
   };
   ti.addEventListener('input',()=>{ auto(ti); t.title=ti.value.replace(/\n/g,' '); changed('title'); });
@@ -1262,6 +1467,7 @@ function openTask(id){
   });
   $('#dPrio',sh).addEventListener('click',e=>{ const b=e.target.closest('[data-p]'); if(!b) return; t.priority=+b.dataset.p; $$('#dPrio button',sh).forEach(x=>x.setAttribute('aria-pressed',String(x===b))); const dt=$('.detail-title',sh); dt.className=`detail-title pr${t.priority} ${t.done?'done':''}`; changed('priority'); flush(); });
   $('#dProj',sh).addEventListener('change',e=>{ const [p,s]=e.target.value.split('::'); t.projectId=p; t.sectionId=s||''; descendants(id).forEach(c=>{c.projectId=p;c.sectionId=t.sectionId;Persist.putTask(c);}); changed('project'); flush(); });
+  const dMs=$('#dMs',sh); if(dMs) dMs.addEventListener('change',e=>{ t.msId=e.target.value; changed('goal'); flush(); });
   $('#dLabels',sh).addEventListener('click',async e=>{
     const b=e.target.closest('[data-l]');
     if(b){ const l=b.dataset.l; t.labels=t.labels||[]; const on=t.labels.includes(l); t.labels=on?t.labels.filter(x=>x!==l):[...t.labels,l]; b.setAttribute('aria-pressed',String(!on)); changed('labels'); flush(); return; }
@@ -1280,6 +1486,7 @@ function openTask(id){
 
 /* view menu */
 function viewMenu(){
+  if(V.type==='goal') return goalMenu();
   const p=pref(), opts=[];
   const sorts=V.type==='upcoming'||V.type==='today'?['smart','priority','name','created']:['manual','due','priority','name','created'];
   opts.push({label:'並び替え',value:SORT_NAMES[p.sort]||'',icon:'list',run:()=>optionsSheet('並び替え',sorts.map(s=>({label:SORT_NAMES[s],checked:p.sort===s,run:()=>setPref({sort:s})})))});
@@ -1370,6 +1577,8 @@ $('#fab').addEventListener('click',()=>{
   if(V.type==='today') pre.due=T();
   if(V.type==='project') pre.projectId=V.id;
   if(V.type==='label') pre.labels=[V.id];
+  if(V.type==='goals'){ editGoalSheet(null).then(g=>{ if(g) go({type:'goal',id:g.id}); }); return; }
+  if(V.type==='goal'){ const g=goal(V.id), m=g&&openMs(g)[0]; if(!m){ editMsSheet(g).then(x=>{ if(x) render(); }); return; } pre.msId=m.id; }
   openQuickAdd(pre);
 });
 $('#layoutSeg').addEventListener('click',e=>{ const b=e.target.closest('[data-layout]'); if(b) setPref({layout:b.dataset.layout}); });
@@ -1388,6 +1597,9 @@ $('#main').addEventListener('click',async e=>{
   const j=t.closest('[data-jump]'); if(j){ const el=document.getElementById('d-'+j.dataset.jump); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); return; }
   const cn=t.closest('[data-cal]'); if(cn){ const k=vkey(V), td=T(); if(cn.dataset.cal==='today'){ calCursor[k]=td.slice(0,7); calSel[k]=td; } else { const [y,m]=(calCursor[k]||td.slice(0,7)).split('-').map(Number); const d=new Date(y,m-1+ +cn.dataset.cal,1); calCursor[k]=ymd(d).slice(0,7); } render(); return; }
   const cd=t.closest('[data-day]'); if(cd){ calSel[vkey(V)]=cd.dataset.day; render(); return; }
+  const md=t.closest('[data-msdone]'); if(md){ msDone(md.dataset.msdone); return; }
+  const mu=t.closest('[data-msundo]'); if(mu){ msUndo(mu.dataset.msundo); return; }
+  const mm=t.closest('[data-msmenu]'); if(mm){ msMenu(mm.dataset.msmenu); return; }
   const af=t.closest('[data-actf]'); if(af){ actFilter=af.dataset.actf; render(); return; }
   const a=t.closest('[data-act]');
   if(a){ switch(a.dataset.act){
@@ -1399,6 +1611,9 @@ $('#main').addEventListener('click',async e=>{
     case 'newLabel': { const r=await nameSheet({title:'ラベルを追加',placeholder:'例：決裁待ち',color:'gray',validate:v=>S.meta.labels.some(l=>l.name===v)?'同じ名前のラベルがあります':''}); if(r){ S.meta.labels.push({id:newId(),name:r.name.replace(/^@/,''),color:r.color}); Persist.putMeta(); render(); } return; }
     case 'newFilter': { const r=await filterSheet(null); if(r){ const f={id:newId(),name:r.name,color:r.color,query:r.query}; S.meta.filters.push(f); Persist.putMeta(); go({type:'filter',id:f.id}); } return; }
     case 'editFilter': return editFilter();
+    case 'newGoal': { const g=await editGoalSheet(null); if(g) go({type:'goal',id:g.id}); return; }
+    case 'editGoal': { const g=goal(V.id); if(g&&await editGoalSheet(g)) render(); return; }
+    case 'newMs': { const g=goal(V.id); if(g&&await editMsSheet(g)) render(); return; }
     case 'setGoal': { const r=await nameSheet({title:'1日の完了目標（件数）',value:String(S.meta.goal),validate:v=>/^\d{1,3}$/.test(v)&&+v>0?'':'1以上の数字を入力してください'}); if(r){ S.meta.goal=+r.name; Persist.putMeta(); render(); } return; }
     case 'toggleSound': S.meta.sound=S.meta.sound===false; Persist.putMeta(); render(); if(S.meta.sound) Sound.play('done'); return;
     case 'export': return doExport();
